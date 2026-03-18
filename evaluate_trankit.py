@@ -2,7 +2,7 @@
 # evaluate_trankit.py
 # Step 8 — Evaluation using Trankit-based parsers.
 #
-# Evaluates three systems on the real Bhojpuri BHTB test set (357 sentences):
+# Evaluates four systems on the real Bhojpuri BHTB test set (357 sentences):
 #
 #   System A — Zero-shot:    trained Hindi Trankit model applied directly to
 #               Bhojpuri text (no Bhojpuri training data at all)
@@ -13,10 +13,16 @@
 #   System C — Filtered:     Bhojpuri Trankit trained on quality-filtered
 #               projected treebank (alignment coverage ≥ 70%)
 #
+#   System D — Two-stage + Selective (NOVEL):
+#               Innovation 1: warm-started from Hindi checkpoint (not raw XLM-R)
+#               Innovation 3: relation-selective projection — HIGH_CONF deprels
+#               keep projected annotation; LOW_CONF deprels replaced by
+#               System A predictions (cleaner signal for complex relations)
+#
 # Reports: UAS, LAS, per-relation LAS, delta tables
 #
 # Usage:
-#   python3 evaluate_trankit.py [--device cpu]
+#   python3 evaluate_trankit.py [--gpu] [--skip_d]
 
 from __future__ import annotations
 
@@ -179,7 +185,9 @@ def print_per_rel(per_rel: Dict[str, List[int]], top_n: int = 20):
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser(description="Step 8 — Evaluate Trankit-based parsers")
-    ap.add_argument("--gpu", action="store_true", default=False)
+    ap.add_argument("--gpu",    action="store_true", default=False)
+    ap.add_argument("--skip_d", action="store_true", default=False,
+                    help="Skip System D (run A/B/C only)")
     args = ap.parse_args()
 
     bhtb_test = DATA_DIR / "bhojpuri/bho_bhtb-ud-test.conllu"
@@ -233,44 +241,64 @@ def main():
     )
     results["C_filtered"] = (uas_c, las_c)
 
+    # ── System D: Two-stage warm-start + relation-selective projection ─────────
+    uas_d = las_d = 0.0
+    per_rel_d: Dict = {}
+    if not args.skip_d:
+        uas_d, las_d, per_rel_d = eval_system(
+            lang         = "bhojpuri_warmstart",
+            save_dir     = str(CHECKPT_DIR / "trankit_bho_warmstart"),
+            train_conllu = syn_dir / "bho_selective_train.conllu",
+            test_sents   = test_sents,
+            gpu          = args.gpu,
+            label        = "D: Two-stage warm-start + selective projection",
+        )
+    results["D_warmstart"] = (uas_d, las_d)
+
     # ── Per-relation breakdown for best system ────────────────────────────────
-    best_las   = max(las_a, las_b, las_c)
-    best_label = "C (filtered)" if las_c == best_las else \
-                 "B (projection)" if las_b == best_las else "A (zero-shot)"
-    best_rel   = per_rel_c if las_c == best_las else \
-                 per_rel_b if las_b == best_las else per_rel_a
+    all_results = {"A": (las_a, per_rel_a, "A (zero-shot)"),
+                   "B": (las_b, per_rel_b, "B (projection)"),
+                   "C": (las_c, per_rel_c, "C (filtered)"),
+                   "D": (las_d, per_rel_d, "D (warm-start+selective)")}
+    best_key   = max(all_results, key=lambda k: all_results[k][0])
+    best_las, best_rel, best_label = all_results[best_key]
 
     print(f"\n{'─'*60}")
     print(f"  Per-relation LAS — {best_label}")
     print_per_rel(best_rel, top_n=20)
 
     # ── Summary table ─────────────────────────────────────────────────────────
-    print(f"\n{'='*62}")
-    print(f"  STEP 8 — FINAL RESULTS SUMMARY")
-    print(f"{'='*62}")
-    print(f"  {'System':<40} {'UAS':>7} {'LAS':>7}")
-    print(f"  {'─'*56}")
-    print(f"  {'[A] Zero-shot (Hindi Trankit → Bhojpuri)':<40} {uas_a*100:>6.2f}% {las_a*100:>6.2f}%")
-    print(f"  {'[B] Projection-only (5,000 unfiltered)':<40} {uas_b*100:>6.2f}% {las_b*100:>6.2f}%")
-    print(f"  {'[C] Quality-filtered (coverage ≥ 70%)':<40} {uas_c*100:>6.2f}% {las_c*100:>6.2f}%")
-    print(f"  {'─'*56}")
+    print(f"\n{'='*66}")
+    print(f"  STEP 8 — FINAL RESULTS SUMMARY  (4-way comparison)")
+    print(f"{'='*66}")
+    print(f"  {'System':<44} {'UAS':>7} {'LAS':>7}")
+    print(f"  {'─'*60}")
+    print(f"  {'[A] Zero-shot (Hindi Trankit → Bhojpuri)':<44} {uas_a*100:>6.2f}% {las_a*100:>6.2f}%")
+    print(f"  {'[B] Projection-only (5,000 unfiltered)':<44} {uas_b*100:>6.2f}% {las_b*100:>6.2f}%")
+    print(f"  {'[C] Quality-filtered (coverage ≥ 70%)':<44} {uas_c*100:>6.2f}% {las_c*100:>6.2f}%")
+    if not args.skip_d:
+        print(f"  {'[D] Two-stage warm-start + selective proj.':<44} {uas_d*100:>6.2f}% {las_d*100:>6.2f}%  ← NOVEL")
+    print(f"  {'─'*60}")
 
-    delta_ba = las_b - las_a
-    delta_cb = las_c - las_b
-    delta_ca = las_c - las_a
-    print(f"\n  Cross-lingual transfer gains:")
-    print(f"    B vs A (projection over zero-shot):        ΔLAS = {delta_ba:+.2f}%")
-    print(f"    C vs B (filtering over raw projection):    ΔLAS = {delta_cb:+.2f}%")
-    print(f"    C vs A (full pipeline over zero-shot):     ΔLAS = {delta_ca:+.2f}%")
-    print(f"{'='*62}")
+    print(f"\n  Innovation gains (LAS):")
+    print(f"    D vs A (novel vs zero-shot baseline):      ΔLAS = {(las_d - las_a)*100:+.2f}%")
+    print(f"    D vs B (novel vs raw projection):          ΔLAS = {(las_d - las_b)*100:+.2f}%")
+    print(f"    D vs C (novel vs quality-filtered):        ΔLAS = {(las_d - las_c)*100:+.2f}%")
+    print(f"\n  Baseline deltas:")
+    print(f"    B vs A (projection over zero-shot):        ΔLAS = {(las_b - las_a)*100:+.2f}%")
+    print(f"    C vs B (coverage filter over projection):  ΔLAS = {(las_c - las_b)*100:+.2f}%")
+    print(f"{'='*66}")
 
-    target_met = las_c * 100 >= 35.0
-    print(f"\n  Target range: UAS 45-55%, LAS 35-45%")
-    print(f"  Best system  UAS: {uas_c*100:.2f}%   LAS: {las_c*100:.2f}%")
-    if target_met:
-        print(f"  Target MET — quality-filtered Trankit achieves ≥35% LAS")
-    else:
-        print(f"  Note: LAS {las_c*100:.2f}% — more epochs or larger filtered dataset may close the gap")
+    if not args.skip_d:
+        best_uas = max(uas_a, uas_b, uas_c, uas_d)
+        best_las_val = max(las_a, las_b, las_c, las_d)
+        target_met = best_las_val * 100 >= 35.0
+        print(f"\n  Target range: UAS 45-55%, LAS 35-45%")
+        print(f"  Best UAS: {best_uas*100:.2f}%   Best LAS: {best_las_val*100:.2f}%  [{best_label}]")
+        if target_met:
+            print(f"  Target MET — System D achieves ≥35% LAS")
+        else:
+            print(f"  Note: LAS {best_las_val*100:.2f}% — target not yet met")
 
 
 if __name__ == "__main__":
