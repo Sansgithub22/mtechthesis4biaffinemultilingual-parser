@@ -193,10 +193,13 @@ class SystemE(nn.Module):
     System E = CrossLingualParser warm-started from Trankit checkpoints.
 
     At TRAINING time:  paired (Hindi, Bhojpuri) sentences.
-    At TEST time:      single Bhojpuri sentence — use it as its own Hindi
-                       context so cross-attention becomes intra-sentence
-                       self-attention (degrades gracefully, still benefits
-                       from cross-lingual training).
+    At TEST time:      single Bhojpuri sentence — encode it through BOTH
+                       adapters: Bhojpuri adapter → H_bho, Hindi adapter →
+                       H_hi.  Because XLM-R is shared and multilingual,
+                       the Hindi adapter produces a "Hindi-structural
+                       perspective" of the Bhojpuri text, which the
+                       cross-attention uses as real structural guidance
+                       (same as System A but enriched by fine-tuning).
     """
 
     def __init__(self, rel_vocab: RelVocab):
@@ -250,13 +253,24 @@ class SystemE(nn.Module):
 
     def forward_test(self, bho_words: List[str], device: torch.device):
         """
-        Test-time: no Hindi sentence available.
-        Feed Bhojpuri as its own Hindi context → cross-attn = intra-sentence.
+        Test-time: no parallel Hindi sentence available.
+
+        Encode the Bhojpuri test sentence through BOTH language adapters:
+          H_bho = Bhojpuri adapter(XLM-R(bho_words))  — Bhojpuri perspective
+          H_hi  = Hindi adapter(XLM-R(bho_words))      — Hindi structural perspective
+
+        Because XLM-R is multilingual and Bhojpuri ≈ Hindi, the Hindi adapter
+        produces Hindi-like structural features for the Bhojpuri words.
+        The cross-attention then has a real structural signal to attend to —
+        identical to how System A uses the Hindi model at zero-shot inference.
+        The difference: our Bhojpuri adapter + cross-lingual fusion layer have
+        been fine-tuned to combine these two views for better Bhojpuri parsing.
         """
         H_bho = self.encoder._encode_words(bho_words, "bhojpuri")
+        H_hi  = self.encoder._encode_words(bho_words, "hindi")   # Hindi lens on same words
 
-        # Self-context: Bhojpuri attends to itself
-        H_cross, _ = self.cross_attn(H_bho, H_bho)
+        # Cross-attention: Bhojpuri queries Hindi-structural perspective
+        H_cross, _ = self.cross_attn(H_bho, H_hi)
         H_fused    = self.cross_layer(H_bho, H_cross)
 
         arc_bho, lbl_bho = self.bhojpuri_parser(H_fused)
@@ -316,6 +330,20 @@ class SystemE(nn.Module):
 # ─────────────────────────────────────────────────────────────────────────────
 def train_epoch(model, optimizer, samples, hi_cache, bho_cache,
                 rel_vocab, device, lambda_hi, lambda_align):
+    """
+    Mixed training strategy — eliminates train/test mismatch:
+
+      50% of steps (PARALLEL mode):  H_hi = Hindi adapter on actual Hindi words
+                                      H_bho = Bhojpuri adapter on Bhojpuri words
+                                      → model learns to leverage real Hindi structure
+
+      50% of steps (SELF mode):      H_hi = Hindi adapter on Bhojpuri words
+                                      H_bho = Bhojpuri adapter on Bhojpuri words
+                                      → matches test-time exactly (no Hindi available)
+
+    This trains the model to work in BOTH scenarios so at test time it is not
+    seeing an out-of-distribution input for the cross-attention.
+    """
     model.train()
     model.encoder.xlmr.eval()   # backbone always frozen
 
@@ -337,14 +365,33 @@ def train_epoch(model, optimizer, samples, hi_cache, bho_cache,
 
         optimizer.zero_grad()
 
-        out = model.forward_train(c_hi, c_bho, device)
+        # Mixed training: 50% parallel mode, 50% self mode
+        use_parallel = random.random() < 0.5
+
+        if use_parallel:
+            # PARALLEL mode: use actual Hindi sentence as H_hi context
+            out = model.forward_train(c_hi, c_bho, device)
+            gold_hi_sent = samp.hi_sent
+        else:
+            # SELF mode: encode Bhojpuri through Hindi adapter → matches test time
+            H_bho = model.encoder.encode_one("bhojpuri", [], cached_xlmr=c_bho)
+            H_hi  = model.encoder.encode_one("hindi",    [], cached_xlmr=c_bho)
+            H_cross, _ = model.cross_attn(H_bho, H_hi)
+            H_fused    = model.cross_layer(H_bho, H_cross)
+            arc_hi,  lbl_hi  = model.hindi_parser(H_hi)
+            arc_bho, lbl_bho = model.bhojpuri_parser(H_fused)
+            out = {"arc_hi": arc_hi, "lbl_hi": lbl_hi,
+                   "arc_bho": arc_bho, "lbl_bho": lbl_bho,
+                   "H_hi": H_hi, "H_bho": H_bho}
+            # In self mode use Bhojpuri labels for the Hindi head too (same sentence)
+            gold_hi_sent = samp.bho_sent
 
         # Guard: cache length must match gold annotation length
-        if (out["H_hi"].size(1)  != len(samp.hi_sent.tokens) or
+        if (out["H_hi"].size(1)  != len(gold_hi_sent.tokens) or
             out["H_bho"].size(1) != len(samp.bho_sent.tokens)):
             continue
 
-        hi_heads,  hi_rels,  hi_mask  = sent_to_tensors(samp.hi_sent,  rel_vocab, device)
+        hi_heads,  hi_rels,  hi_mask  = sent_to_tensors(gold_hi_sent,  rel_vocab, device)
         bho_heads, bho_rels, bho_mask = sent_to_tensors(samp.bho_sent, rel_vocab, device)
 
         L_total, L_bho, L_hi, L_align = model.compute_loss(
@@ -458,7 +505,8 @@ def main():
     ap.add_argument("--lambda_align",  type=float, default=0.1,
                     help="Weight on alignment regularisation loss")
     ap.add_argument("--lr",            type=float, default=2e-4)
-    ap.add_argument("--device",        default=CFG.train.device)
+    ap.add_argument("--device",        default="cpu",
+                    help="Device: cpu (recommended — MPS crashes on MultiheadAttention)")
     ap.add_argument("--eval_only",     action="store_true",
                     help="Skip training; evaluate saved checkpoint on BHTB")
     ap.add_argument("--skip_warmstart", action="store_true",
