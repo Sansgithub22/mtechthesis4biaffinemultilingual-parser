@@ -2,7 +2,7 @@
 # evaluate_trankit.py
 # Step 8 — Evaluation using Trankit-based parsers.
 #
-# Evaluates four systems on the real Bhojpuri BHTB test set (357 sentences):
+# Evaluates systems on the real Bhojpuri BHTB test set (357 sentences):
 #
 #   System A — Zero-shot:    trained Hindi Trankit model applied directly to
 #               Bhojpuri text (no Bhojpuri training data at all)
@@ -19,10 +19,16 @@
 #               keep projected annotation; LOW_CONF deprels replaced by
 #               System A predictions (cleaner signal for complex relations)
 #
+#   System F — High-Quality Fine-tuning (NOVEL):
+#               Warm-started from Hindi checkpoint + fine-tuned on professor's
+#               matched Bhojpuri data (bhojpuri_matched_transferred.conllu).
+#               30,966 real Bhojpuri sentences with expert-transferred annotations
+#               — no machine translation noise, no SimAlign approximation errors.
+#
 # Reports: UAS, LAS, per-relation LAS, delta tables
 #
 # Usage:
-#   python3 evaluate_trankit.py [--gpu] [--skip_d]
+#   python3 evaluate_trankit.py [--gpu] [--skip_d] [--skip_f]
 
 from __future__ import annotations
 
@@ -188,9 +194,12 @@ def main():
     ap.add_argument("--gpu",    action="store_true", default=False)
     ap.add_argument("--skip_d", action="store_true", default=False,
                     help="Skip System D (run A/B/C only)")
+    ap.add_argument("--skip_f", action="store_true", default=False,
+                    help="Skip System F (professor's matched data)")
     args = ap.parse_args()
 
-    bhtb_test = DATA_DIR / "bhojpuri/bho_bhtb-ud-test.conllu"
+    sysf_train = Path(__file__).parent / "data_files/sysf/bho_sysf_train.conllu"
+    bhtb_test  = DATA_DIR / "bhojpuri/bho_bhtb-ud-test.conllu"
     if not bhtb_test.exists():
         print("Bhojpuri test data missing. Run: python3 data/download_ud_data.py")
         return
@@ -199,6 +208,9 @@ def main():
     print(" Step 8 — Trankit Evaluation")
     print(" Cross-lingual Hindi → Bhojpuri")
     print("========================================")
+    print(f"  Systems: A, B, C" +
+          ("" if args.skip_d else ", D") +
+          ("" if args.skip_f else ", F"))
 
     test_sents = read_conllu(bhtb_test)
     print(f"\n  Test set: {len(test_sents):,} real Bhojpuri sentences (BHTB)")
@@ -255,11 +267,26 @@ def main():
         )
     results["D_warmstart"] = (uas_d, las_d)
 
+    # ── System F: High-quality fine-tuning on professor's matched data ─────────
+    uas_f = las_f = 0.0
+    per_rel_f: Dict = {}
+    if not args.skip_f:
+        uas_f, las_f, per_rel_f = eval_system(
+            lang         = "bhojpuri_sysf",
+            save_dir     = str(CHECKPT_DIR / "trankit_bho_sysf"),
+            train_conllu = sysf_train,
+            test_sents   = test_sents,
+            gpu          = args.gpu,
+            label        = "F: High-quality fine-tuning (professor's matched data)",
+        )
+    results["F_hq_finetune"] = (uas_f, las_f)
+
     # ── Per-relation breakdown for best system ────────────────────────────────
     all_results = {"A": (las_a, per_rel_a, "A (zero-shot)"),
                    "B": (las_b, per_rel_b, "B (projection)"),
                    "C": (las_c, per_rel_c, "C (filtered)"),
-                   "D": (las_d, per_rel_d, "D (warm-start+selective)")}
+                   "D": (las_d, per_rel_d, "D (warm-start+selective)"),
+                   "F": (las_f, per_rel_f, "F (high-quality fine-tuning)")}
     best_key   = max(all_results, key=lambda k: all_results[k][0])
     best_las, best_rel, best_label = all_results[best_key]
 
@@ -268,37 +295,45 @@ def main():
     print_per_rel(best_rel, top_n=20)
 
     # ── Summary table ─────────────────────────────────────────────────────────
-    print(f"\n{'='*66}")
-    print(f"  STEP 8 — FINAL RESULTS SUMMARY  (4-way comparison)")
-    print(f"{'='*66}")
-    print(f"  {'System':<44} {'UAS':>7} {'LAS':>7}")
-    print(f"  {'─'*60}")
-    print(f"  {'[A] Zero-shot (Hindi Trankit → Bhojpuri)':<44} {uas_a*100:>6.2f}% {las_a*100:>6.2f}%")
-    print(f"  {'[B] Projection-only (5,000 unfiltered)':<44} {uas_b*100:>6.2f}% {las_b*100:>6.2f}%")
-    print(f"  {'[C] Quality-filtered (coverage ≥ 70%)':<44} {uas_c*100:>6.2f}% {las_c*100:>6.2f}%")
+    print(f"\n{'='*70}")
+    print(f"  STEP 8 — FINAL RESULTS SUMMARY")
+    print(f"{'='*70}")
+    print(f"  {'System':<48} {'UAS':>7} {'LAS':>7}")
+    print(f"  {'─'*64}")
+    print(f"  {'[A] Zero-shot (Hindi Trankit → Bhojpuri)':<48} {uas_a*100:>6.2f}% {las_a*100:>6.2f}%  ← baseline")
+    print(f"  {'[B] Projection-only (5,000 unfiltered)':<48} {uas_b*100:>6.2f}% {las_b*100:>6.2f}%")
+    print(f"  {'[C] Quality-filtered (coverage ≥ 70%)':<48} {uas_c*100:>6.2f}% {las_c*100:>6.2f}%")
     if not args.skip_d:
-        print(f"  {'[D] Two-stage warm-start + selective proj.':<44} {uas_d*100:>6.2f}% {las_d*100:>6.2f}%  ← NOVEL")
-    print(f"  {'─'*60}")
+        print(f"  {'[D] Two-stage warm-start + selective proj.':<48} {uas_d*100:>6.2f}% {las_d*100:>6.2f}%")
+    if not args.skip_f:
+        print(f"  {'[F] High-quality fine-tuning (prof. data)':<48} {uas_f*100:>6.2f}% {las_f*100:>6.2f}%  ← NOVEL")
+    print(f"  {'─'*64}")
 
-    print(f"\n  Innovation gains (LAS):")
-    print(f"    D vs A (novel vs zero-shot baseline):      ΔLAS = {(las_d - las_a)*100:+.2f}%")
-    print(f"    D vs B (novel vs raw projection):          ΔLAS = {(las_d - las_b)*100:+.2f}%")
-    print(f"    D vs C (novel vs quality-filtered):        ΔLAS = {(las_d - las_c)*100:+.2f}%")
+    print(f"\n  Gains over zero-shot baseline (System A):")
+    if not args.skip_d:
+        print(f"    D vs A: ΔUAS = {(uas_d - uas_a)*100:+.2f}%   ΔLAS = {(las_d - las_a)*100:+.2f}%")
+    if not args.skip_f:
+        print(f"    F vs A: ΔUAS = {(uas_f - uas_a)*100:+.2f}%   ΔLAS = {(las_f - las_a)*100:+.2f}%  ← target: positive")
     print(f"\n  Baseline deltas:")
     print(f"    B vs A (projection over zero-shot):        ΔLAS = {(las_b - las_a)*100:+.2f}%")
     print(f"    C vs B (coverage filter over projection):  ΔLAS = {(las_c - las_b)*100:+.2f}%")
-    print(f"{'='*66}")
+    print(f"{'='*70}")
 
+    all_uas = [uas_a, uas_b, uas_c]
+    all_las = [las_a, las_b, las_c]
     if not args.skip_d:
-        best_uas = max(uas_a, uas_b, uas_c, uas_d)
-        best_las_val = max(las_a, las_b, las_c, las_d)
-        target_met = best_las_val * 100 >= 35.0
-        print(f"\n  Target range: UAS 45-55%, LAS 35-45%")
-        print(f"  Best UAS: {best_uas*100:.2f}%   Best LAS: {best_las_val*100:.2f}%  [{best_label}]")
-        if target_met:
-            print(f"  Target MET — System D achieves ≥35% LAS")
-        else:
-            print(f"  Note: LAS {best_las_val*100:.2f}% — target not yet met")
+        all_uas.append(uas_d); all_las.append(las_d)
+    if not args.skip_f:
+        all_uas.append(uas_f); all_las.append(las_f)
+    best_uas_val = max(all_uas)
+    best_las_val = max(all_las)
+    target_met   = best_las_val * 100 >= 35.0
+    print(f"\n  Target range: UAS 45-55%, LAS 35-45%")
+    print(f"  Best UAS: {best_uas_val*100:.2f}%   Best LAS: {best_las_val*100:.2f}%  [{best_label}]")
+    if target_met:
+        print(f"  Target MET — best system achieves ≥35% LAS")
+    else:
+        print(f"  Note: LAS {best_las_val*100:.2f}% — target not yet met")
 
 
 if __name__ == "__main__":

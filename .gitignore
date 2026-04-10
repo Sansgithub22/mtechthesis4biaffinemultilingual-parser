@@ -1,6 +1,11 @@
 # Model checkpoints (large binary files)
 checkpoints/
 
+# Large parallel data files (57MB + 86MB) — too large for GitHub
+# Upload to Google Drive and download in Colab via setup cell
+bhojpuri_matched_transferred.conllu
+hindi_matched.conllu
+
 # HuggingFace cache symlinks
 cache/
 
