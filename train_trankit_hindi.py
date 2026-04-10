@@ -67,7 +67,7 @@ def main():
         "max_epoch":        args.epochs,
         "batch_size":       args.batch_size,
         "gpu":              args.gpu,
-        "embedding":        os.environ.get("XLM_R_PATH", "xlm-roberta-base"),
+        "embedding":        "xlm-roberta-base",
     })
 
     print("Training …")
