@@ -38,6 +38,10 @@ echo "  Submitted System G         → Job ID: $SYSG_JOB  (starts after Job $HIN
 SYSH_JOB=$(sbatch --parsable --dependency=afterok:$HINDI_JOB slurm/run_sysh.sh)
 echo "  Submitted System H         → Job ID: $SYSH_JOB  (starts after Job $HINDI_JOB)"
 
+# Job 5: Train System I — starts after Hindi is done (same time as F, G, H)
+SYSI_JOB=$(sbatch --parsable --dependency=afterok:$HINDI_JOB slurm/run_sysi.sh)
+echo "  Submitted System I         → Job ID: $SYSI_JOB  (starts after Job $HINDI_JOB)"
+
 echo ""
 echo "============================================"
 echo " All jobs submitted!"
@@ -45,9 +49,10 @@ echo "============================================"
 echo ""
 echo " Timeline:"
 echo "   Hindi training  (Job $HINDI_JOB)  → runs first"
-echo "   System F        (Job $SYSF_JOB)   → runs after Hindi, simultaneously with G and H"
-echo "   System G        (Job $SYSG_JOB)   → runs after Hindi, simultaneously with F and H"
-echo "   System H        (Job $SYSH_JOB)   → runs after Hindi, simultaneously with F and G"
+echo "   System F        (Job $SYSF_JOB)   → runs after Hindi, simultaneously with G/H/I"
+echo "   System G        (Job $SYSG_JOB)   → runs after Hindi, simultaneously with F/H/I"
+echo "   System H        (Job $SYSH_JOB)   → runs after Hindi, simultaneously with F/G/I"
+echo "   System I        (Job $SYSI_JOB)   → runs after Hindi, simultaneously with F/G/H"
 echo ""
 echo " Monitor:"
 echo "   squeue -u \$USER"
@@ -57,6 +62,7 @@ echo "   tail -f logs/hindi_${HINDI_JOB}.out"
 echo "   tail -f logs/sysf_${SYSF_JOB}.out"
 echo "   tail -f logs/sysg_${SYSG_JOB}.out"
 echo "   tail -f logs/sysh_${SYSH_JOB}.out"
+echo "   tail -f logs/sysi_${SYSI_JOB}.out"
 echo ""
 echo " Cancel all:"
-echo "   scancel $HINDI_JOB $SYSF_JOB $SYSG_JOB $SYSH_JOB"
+echo "   scancel $HINDI_JOB $SYSF_JOB $SYSG_JOB $SYSH_JOB $SYSI_JOB"
