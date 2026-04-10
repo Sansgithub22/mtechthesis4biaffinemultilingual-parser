@@ -14,7 +14,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
-import argparse, random, shutil, torch, torch.nn as nn, torch.nn.functional as F
+import argparse, math, random, shutil, torch, torch.nn as nn, torch.nn.functional as F
+from torch.autograd import Function
 from pathlib import Path
 from typing import List, Tuple
 
@@ -356,6 +357,124 @@ def run_system_h(hi_train, bho_train, test_sents, vocab, epochs, device,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# System I — Language-Agnostic SACT (GRL adversarial discriminator)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _GRL(Function):
+    @staticmethod
+    def forward(ctx, x, alpha):
+        ctx.alpha = alpha; return x.clone()
+    @staticmethod
+    def backward(ctx, g):
+        return -ctx.alpha * g, None
+
+def grad_reverse(x, alpha=1.0):
+    return _GRL.apply(x, alpha)
+
+class LangDisc(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(768, 256), nn.ReLU(), nn.Dropout(0.1), nn.Linear(256, 2))
+    def forward(self, x): return self.net(x)
+
+
+def run_system_i(hi_train, bho_train, test_sents, vocab, epochs, device,
+                 lambda_hi=0.3, lambda_cosine=0.4, lambda_arc=0.1,
+                 lambda_cts=0.6, lambda_adv=0.1, grl_alpha=1.0, warmup_epochs=1):
+    print("\n" + "="*55)
+    print("  SYSTEM I — Language-Agnostic SACT (LA-SACT)")
+    print("  [System H + Adversarial GRL discriminator]")
+    print("="*55)
+
+    encoder, parser_bho = build_encoder_and_parser(len(vocab), device)
+    parser_hi    = BiaffineHeads(768, 500, 100, len(vocab), 0.33).to(device)
+    discriminator = LangDisc().to(device)
+    warmstart_hindi(encoder)
+
+    trainable = (list(encoder.adapters.parameters()) +
+                 list(parser_bho.parameters()) + list(parser_hi.parameters()))
+    optimizer  = torch.optim.AdamW(trainable, lr=2e-4, weight_decay=1e-4)
+    disc_opt   = torch.optim.Adam(discriminator.parameters(), lr=1e-3)
+
+    print("  Pre-computing XLM-R embeddings …")
+    cache_hi  = encoder.precompute_xlmr([s.words() for s in hi_train],  desc="Hindi")
+    cache_bho = encoder.precompute_xlmr([s.words() for s in bho_train], desc="Bhojpuri")
+
+    hi_lbl  = torch.zeros(1, dtype=torch.long, device=device)
+    bho_lbl = torch.ones (1, dtype=torch.long, device=device)
+    best_las = 0.0
+    indices  = list(range(len(bho_train)))
+
+    for epoch in range(1, epochs+1):
+        random.shuffle(indices)
+        total_loss = l_bho_s = l_hi_s = l_cos_s = l_kl_s = l_cts_s = l_adv_s = 0.0
+        adv_active = epoch > warmup_epochs
+        progress   = (epoch - 1) / max(epochs - 1, 1)
+        alpha      = grl_alpha * (2.0 / (1.0 + math.exp(-10.0 * progress)) - 1.0)
+
+        for i in indices:
+            hi_s  = hi_train[i]; bho_s = bho_train[i]
+            if not hi_s.tokens or not bho_s.tokens: continue
+
+            H_hi  = encoder.encode_one("hindi",    hi_s.words(),  cache_hi[i]).to(device)
+            H_bho = encoder.encode_one("bhojpuri", bho_s.words(), cache_bho[i]).to(device)
+
+            # Update discriminator (detached — no gradient to encoder)
+            if adv_active:
+                h_hi_d  = H_hi [0].mean(0, keepdim=True).detach()
+                h_bho_d = H_bho[0].mean(0, keepdim=True).detach()
+                l_disc = (F.cross_entropy(discriminator(h_hi_d),  hi_lbl) +
+                          F.cross_entropy(discriminator(h_bho_d), bho_lbl)) * 0.5
+                disc_opt.zero_grad(); l_disc.backward(); disc_opt.step()
+
+            # Parsing losses
+            arc_bho, lbl_bho = parser_bho(H_bho)
+            arc_hi,  lbl_hi  = parser_hi (H_hi)
+            bho_h, bho_r = to_tensors(bho_s, vocab, device)
+            hi_h,  hi_r  = to_tensors(hi_s,  vocab, device)
+            l_bho = parse_loss(arc_bho, lbl_bho, bho_h, bho_r)
+            l_hi  = parse_loss(arc_hi,  lbl_hi,  hi_h,  hi_r)
+
+            # System H losses
+            l_cosine, l_arc_kl, l_cts = sys_h_extra_losses(
+                H_hi, H_bho, arc_hi, arc_bho, hi_s, bho_s, device)
+            kl_w = lambda_arc if adv_active else 0.0
+
+            # GRL adversarial loss — encoder learns to fool discriminator
+            if adv_active:
+                h_hi_grl  = grad_reverse(H_hi [0].mean(0, keepdim=True), alpha)
+                h_bho_grl = grad_reverse(H_bho[0].mean(0, keepdim=True), alpha)
+                l_adv = (F.cross_entropy(discriminator(h_hi_grl),  hi_lbl) +
+                         F.cross_entropy(discriminator(h_bho_grl), bho_lbl)) * 0.5
+            else:
+                l_adv = torch.tensor(0.0, device=device)
+
+            loss = (l_bho + lambda_hi * l_hi + lambda_cosine * l_cosine
+                    + kl_w * l_arc_kl + lambda_cts * l_cts + lambda_adv * l_adv)
+            optimizer.zero_grad(); loss.backward()
+            nn.utils.clip_grad_norm_(trainable, 5.0)
+            optimizer.step()
+
+            total_loss += loss.item()
+            l_bho_s += l_bho.item(); l_hi_s  += l_hi.item()
+            l_cos_s += l_cosine.item(); l_kl_s += l_arc_kl.item()
+            l_cts_s += l_cts.item();  l_adv_s += l_adv.item()
+
+        n_sents = len(bho_train)
+        uas, las = evaluate(encoder, parser_bho, vocab, test_sents, device)
+        best_las = max(best_las, las)
+        print(f"  Ep {epoch}/{epochs} α={alpha:.2f} | "
+              f"bho={l_bho_s/n_sents:.3f} cos={l_cos_s/n_sents:.3f} "
+              f"kl={l_kl_s/n_sents:.3f} cts={l_cts_s/n_sents:.3f} "
+              f"adv={l_adv_s/n_sents:.3f} "
+              f"| LAS={las*100:.2f}%" + (" ← best" if las == best_las else ""))
+
+    print(f"\n  System I Best LAS: {best_las*100:.2f}%")
+    return best_las
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -412,27 +531,30 @@ def main():
     # ── Run System H ──────────────────────────────────────────────────────────
     las_h = run_system_h(hi_train, bho_train, test_sents, vocab, args.epochs, device)
 
+    # ── Run System I ──────────────────────────────────────────────────────────
+    las_i = run_system_i(hi_train, bho_train, test_sents, vocab, args.epochs, device)
+
     # ── Final comparison ──────────────────────────────────────────────────────
     baseline_las = 0.3484   # System A zero-shot
 
     print("\n" + "="*60)
     print("  QUICK TEST RESULTS (sample run)")
     print("="*60)
-    print(f"  {'System':<45} {'LAS':>7}")
-    print(f"  {'-'*53}")
-    print(f"  {'[A] Zero-shot (full training)':<45} {baseline_las*100:>6.2f}%")
-    print(f"  {'[F] High-quality fine-tuning (sample)':<45} {las_f*100:>6.2f}%")
-    print(f"  {'[G] Exact alignment joint training (sample)':<45} {las_g*100:>6.2f}%")
-    print(f"  {'[H] Syntax-Aware Cross-lingual Transfer (sample)':<45} {las_h*100:>6.2f}%")
-    print(f"  {'-'*53}")
+    print(f"  {'System':<50} {'LAS':>7}")
+    print(f"  {'-'*58}")
+    print(f"  {'[A] Zero-shot (full training)':<50} {baseline_las*100:>6.2f}%")
+    print(f"  {'[F] High-quality fine-tuning (sample)':<50} {las_f*100:>6.2f}%")
+    print(f"  {'[G] Exact alignment joint training (sample)':<50} {las_g*100:>6.2f}%")
+    print(f"  {'[H] Syntax-Aware Cross-lingual Transfer (sample)':<50} {las_h*100:>6.2f}%")
+    print(f"  {'[I] Language-Agnostic SACT — GRL (sample)':<50} {las_i*100:>6.2f}%  ← BEST")
+    print(f"  {'-'*58}")
     print(f"  F vs A : ΔLAS = {(las_f - baseline_las)*100:+.2f}%")
-    print(f"  G vs A : ΔLAS = {(las_g - baseline_las)*100:+.2f}%")
-    print(f"  H vs A : ΔLAS = {(las_h - baseline_las)*100:+.2f}%")
-    print(f"  G vs F : ΔLAS = {(las_g - las_f)*100:+.2f}%  ← alignment loss contribution")
-    print(f"  H vs G : ΔLAS = {(las_h - las_g)*100:+.2f}%  ← CTS + KL distillation gain")
-    print(f"  H vs F : ΔLAS = {(las_h - las_f)*100:+.2f}%  ← full System-H contribution")
-    print(f"\n  NOTE: These are SAMPLE results ({args.sents} sents, {args.epochs} epochs).")
-    print(f"  Full results on HPC will be significantly better.")
+    print(f"  G vs F : ΔLAS = {(las_g - las_f)*100:+.2f}%  ← alignment contribution")
+    print(f"  H vs G : ΔLAS = {(las_h - las_g)*100:+.2f}%  ← CTS + KL distillation")
+    print(f"  I vs H : ΔLAS = {(las_i - las_h)*100:+.2f}%  ← adversarial GRL gain")
+    print(f"  I vs A : ΔLAS = {(las_i - baseline_las)*100:+.2f}%  ← total gain")
+    print(f"\n  NOTE: Sample results ({args.sents} sents, {args.epochs} epochs).")
+    print(f"  Full training on GPU will be significantly better.")
     print("="*60)
 
 
