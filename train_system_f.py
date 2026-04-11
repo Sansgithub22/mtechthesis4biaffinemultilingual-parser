@@ -236,17 +236,28 @@ def main():
     build_train_dev_split(dev_ratio=args.dev_ratio)
 
     # ── Step 2: Initialise Trankit TPipeline on Bhojpuri data ─────────────────
+    # Use BHTB test set as dev so evaluation scores are meaningful.
+    # The professor's Bhojpuri transfer data has annotation artefacts (cycles,
+    # multiple roots) that corrupt the UD scorer even after patching — BHTB is
+    # clean UD data and gives real UAS/LAS numbers during training.
+    from config import BHOJPURI_TEST
+    bhtb_dev = BHOJPURI_TEST
+    if not bhtb_dev.exists():
+        print(f"  [WARN] BHTB test not found at {bhtb_dev}, falling back to sysf dev")
+        bhtb_dev = SYSF_DEV
+
     _ensure_xlmr_cache_symlink(save_dir, lang=lang)
 
     from trankit import TPipeline
 
     print("\n[Step 2] Initialising Bhojpuri TPipeline …")
+    print(f"  Dev set : {bhtb_dev}  (BHTB — clean UD data for reliable eval)")
     trainer = TPipeline(training_config={
         "category":           lang,
         "task":               "posdep",
         "save_dir":           save_dir,
         "train_conllu_fpath": str(SYSF_TRAIN),
-        "dev_conllu_fpath":   str(SYSF_DEV),
+        "dev_conllu_fpath":   str(bhtb_dev),
         "max_epoch":          args.epochs,
         "batch_size":         args.batch_size,
         "gpu":                args.gpu,
