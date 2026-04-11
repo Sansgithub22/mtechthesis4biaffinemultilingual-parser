@@ -262,6 +262,7 @@ def main():
         "batch_size":         args.batch_size,
         "gpu":                args.gpu,
         "embedding":          "xlm-roberta-base",
+        "learning_rate":      2e-5,  # low LR prevents catastrophic forgetting of Hindi warm-start
     })
 
     # ── Step 3: Inject Hindi warm-start weights ───────────────────────────────
