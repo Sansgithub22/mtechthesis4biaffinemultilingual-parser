@@ -409,12 +409,29 @@ def main():
               f"hi={l_hi_sum/max(n_sents,1):.4f} "
               f"align={l_align_sum/max(n_sents,1):.4f})", end="  ")
 
-        # ── Dev evaluation on BHTB real test ──────────────────────────────────
-        uas, las = evaluate(encoder, parser_bho, vocab, test_sents, device)
-        print(f"| Test UAS={uas*100:.2f}% LAS={las*100:.2f}%", end="")
+        # ── Dev evaluation (fast, cached — same domain as training) ─────────────
+        encoder.eval(); parser_bho.eval()
+        dev_ph_all, dev_pr_all = [], []
+        with torch.no_grad():
+            for i in dev_idx:
+                s = bho_sents[i]
+                if not s.tokens:
+                    dev_ph_all.append([]); dev_pr_all.append([]); continue
+                H = encoder.encode_one("bhojpuri", s.words(), cache_bho[i]).to(device)
+                arc_s, lbl_s = parser_bho(H)
+                mask = torch.ones(1, len(s.tokens), dtype=torch.bool, device=device)
+                ph, pr = BiaffineHeads.predict(arc_s, lbl_s, mask)
+                dev_ph_all.append(ph[0].cpu().tolist())
+                dev_pr_all.append([vocab.decode(r) for r in pr[0].cpu().tolist()])
+        dev_bho_sents = [bho_sents[i] for i in dev_idx]
+        dev_uas, dev_las = uas_las(dev_bho_sents, dev_ph_all, dev_pr_all)
+        encoder.train(); parser_bho.train()
+        bhtb_uas, bhtb_las = evaluate(encoder, parser_bho, vocab, test_sents, device)
+        print(f"| Dev UAS={dev_uas*100:.2f}% LAS={dev_las*100:.2f}%"
+              f"  BHTB UAS={bhtb_uas*100:.2f}% LAS={bhtb_las*100:.2f}%", end="")
 
-        if las > best_las:
-            best_las = las
+        if dev_las > best_las:
+            best_las = dev_las
             no_improve = 0
             torch.save({
                 "epoch":       epoch,
@@ -439,11 +456,12 @@ def main():
     print(f"\n{'='*60}")
     print(f"  System G — Final Results")
     print(f"{'='*60}")
-    print(f"  Best LAS on BHTB: {best_las*100:.2f}%")
-    print(f"  Checkpoint: {CKPT_PATH}")
-    print(f"\n  Baseline to beat (System A zero-shot): UAS 53.48% / LAS 34.84%")
-    delta = (best_las - 0.3484) * 100
-    print(f"  System G vs System A: ΔLAS = {delta:+.2f}%")
+    print(f"  Best Dev LAS (prof. data) : {best_las*100:.2f}%")
+    final_bhtb_uas, final_bhtb_las = evaluate(encoder, parser_bho, vocab, test_sents, device)
+    print(f"  Final BHTB UAS            : {final_bhtb_uas*100:.2f}%")
+    print(f"  Final BHTB LAS            : {final_bhtb_las*100:.2f}%")
+    print(f"  Checkpoint                : {CKPT_PATH}")
+    print(f"\n  Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%")
     print(f"{'='*60}")
 
 

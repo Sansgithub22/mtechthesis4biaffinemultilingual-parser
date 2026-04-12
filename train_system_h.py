@@ -326,8 +326,10 @@ def main():
     n_total = len(hi_sents)
     n_dev   = max(1, int(n_total * args.dev_ratio))
     n_train = n_total - n_dev
-    all_idx = list(range(n_total))
+    all_idx  = list(range(n_total))
     train_idx = all_idx[:n_train]
+    dev_idx   = all_idx[n_train:]
+    dev_bho   = [bho_sents[i] for i in dev_idx]
     print(f"  Train : {n_train:,} | Dev : {n_dev:,}")
 
     # ── Vocabulary ────────────────────────────────────────────────────────────
@@ -434,17 +436,36 @@ def main():
             n_sents += 1
 
         N = max(n_sents, 1)
-        uas, las = evaluate(encoder, parser_bho, vocab, test_sents, device)
-        best_las = max(best_las, las)
-        improved = las >= best_las
+        # Dev evaluation (fast — uses cached XLM-R embeddings)
+        encoder.eval(); parser_bho.eval()
+        dev_ph_all, dev_pr_all = [], []
+        with torch.no_grad():
+            for i, s in zip(dev_idx, dev_bho):
+                if not s.tokens:
+                    dev_ph_all.append([]); dev_pr_all.append([]); continue
+                H = encoder.encode_one("bhojpuri", s.words(), cache_bho[i]).to(device)
+                arc_s, lbl_s = parser_bho(H)
+                mask = torch.ones(1, len(s.tokens), dtype=torch.bool, device=device)
+                ph, pr = BiaffineHeads.predict(arc_s, lbl_s, mask)
+                dev_ph_all.append(ph[0].cpu().tolist())
+                dev_pr_all.append([vocab.decode(r) for r in pr[0].cpu().tolist()])
+        dev_uas, dev_las = uas_las(dev_bho, dev_ph_all, dev_pr_all)
+        encoder.train(); parser_bho.train()
+        # BHTB evaluation (reference)
+        bhtb_uas, bhtb_las = evaluate(encoder, parser_bho, vocab, test_sents, device)
+
+        improved = dev_las > best_las
+        if improved:
+            best_las = dev_las
 
         print(f"Epoch {epoch:3d}/{args.epochs} | "
               f"bho={l_bho_s/N:.3f} hi={l_hi_s/N:.3f} "
               f"cos={l_cos_s/N:.3f} kl={l_kl_s/N:.3f} cts={l_cts_s/N:.3f} "
-              f"| Test UAS={uas*100:.2f}% LAS={las*100:.2f}%",
+              f"| Dev UAS={dev_uas*100:.2f}% LAS={dev_las*100:.2f}%"
+              f"  BHTB UAS={bhtb_uas*100:.2f}% LAS={bhtb_las*100:.2f}%",
               end="")
 
-        if las > (best_las - 1e-9) and improved:
+        if improved:
             no_improve = 0
             torch.save({
                 "epoch":      epoch,
@@ -469,10 +490,12 @@ def main():
     print(f"\n{'='*60}")
     print(f"  System H — Final Results")
     print(f"{'='*60}")
-    print(f"  Best LAS on BHTB  : {best_las*100:.2f}%")
-    print(f"  Checkpoint        : {CKPT_PATH}")
+    print(f"  Best Dev LAS (prof. data) : {best_las*100:.2f}%")
+    final_bhtb_uas, final_bhtb_las = evaluate(encoder, parser_bho, vocab, test_sents, device)
+    print(f"  Final BHTB UAS            : {final_bhtb_uas*100:.2f}%")
+    print(f"  Final BHTB LAS            : {final_bhtb_las*100:.2f}%")
+    print(f"  Checkpoint                : {CKPT_PATH}")
     print(f"\n  Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%")
-    print(f"  System H vs A: ΔLAS = {(best_las - 0.3484)*100:+.2f}%")
     print(f"{'='*60}")
 
 
