@@ -27,7 +27,7 @@ import shutil
 import torch
 from pathlib import Path
 
-from config import CHECKPT_DIR
+from config import CHECKPT_DIR, XLM_R_LOCAL
 
 
 def _patch_ud_scorer():
@@ -258,7 +258,7 @@ def main():
         "max_epoch":          args.epochs,
         "batch_size":         args.batch_size,
         "gpu":                args.gpu,
-        "embedding":          "xlm-roberta-base",
+        "embedding":          XLM_R_LOCAL,
         "learning_rate":      2e-5,  # low LR prevents catastrophic forgetting of Hindi warm-start
     })
 
