@@ -338,10 +338,20 @@ def main():
     disc_opt   = torch.optim.Adam(discriminator.parameters(), lr=args.disc_lr)
     print(f"  Trainable params: {sum(p.numel() for p in trainable):,}")
 
-    # ── Pre-compute XLM-R embeddings ──────────────────────────────────────────
+    # ── Pre-compute XLM-R embeddings (load from disk if available) ───────────
     print("\n[5] Pre-computing XLM-R embeddings …")
-    cache_hi  = encoder.precompute_xlmr([s.words() for s in hi_sents],  desc="Hindi")
-    cache_bho = encoder.precompute_xlmr([s.words() for s in bho_sents], desc="Bhojpuri")
+    _cache_path = ROOT_DIR / "cache" / "xlmr_cache.pt"
+    if _cache_path.exists():
+        print(f"  Loading cached embeddings from {_cache_path} …")
+        _c = torch.load(str(_cache_path), map_location="cpu")
+        cache_hi, cache_bho = _c["hi"], _c["bho"]
+        print(f"  Loaded — hi:{len(cache_hi)}, bho:{len(cache_bho)}")
+    else:
+        cache_hi  = encoder.precompute_xlmr([s.words() for s in hi_sents],  desc="Hindi")
+        cache_bho = encoder.precompute_xlmr([s.words() for s in bho_sents], desc="Bhojpuri")
+        _cache_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save({"hi": cache_hi, "bho": cache_bho}, str(_cache_path))
+        print(f"  Saved cache → {_cache_path}")
 
     # ── Training loop ─────────────────────────────────────────────────────────
     CKPT_DIR.mkdir(parents=True, exist_ok=True)
