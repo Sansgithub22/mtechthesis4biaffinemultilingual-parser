@@ -41,9 +41,6 @@ from __future__ import annotations
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-
 import argparse
 import random
 import torch
@@ -154,6 +151,32 @@ def warmstart_hindi_adapter(encoder: ParallelEncoder, hindi_ckpt: Path):
             skipped += 1
     encoder.adapters["hindi"].load_state_dict(new_sd)
     print(f"  Hindi warm-start: loaded {loaded}, skipped {skipped} tensors")
+
+
+def warmstart_biaffine_from_hindi(parser_bho: BiaffineHeads, parser_hi: BiaffineHeads, hindi_ckpt: Path):
+    if not hindi_ckpt.exists():
+        print("  [WARN] Hindi checkpoint not found — skipping biaffine warm-start")
+        return
+    state = torch.load(str(hindi_ckpt), map_location="cpu")
+    hindi_tensors = list(state.get("adapters", {}).values())
+    total_copied = 0
+    for parser in [parser_bho, parser_hi]:
+        our_sd = parser.state_dict()
+        new_sd = {k: v.clone() for k, v in our_sd.items()}
+        used = set()
+        copied = 0
+        for ok, ov in our_sd.items():
+            if "label.biaffine" in ok:
+                continue
+            for i, hv in enumerate(hindi_tensors):
+                if i not in used and hv.shape == ov.shape:
+                    new_sd[ok] = hv.clone()
+                    used.add(i)
+                    copied += 1
+                    break
+        parser.load_state_dict(new_sd)
+        total_copied += copied
+    print(f"  Biaffine warm-start: copied {total_copied} tensors from Hindi tagger")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -287,8 +310,9 @@ def main():
 
     # Warm-start Hindi adapter from Trankit checkpoint
     hindi_ckpt = CHECKPT_DIR / "trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
-    print("\n[4] Warm-starting Hindi adapter …")
+    print("\n[4] Warm-starting from Hindi checkpoint …")
     warmstart_hindi_adapter(encoder, hindi_ckpt)
+    warmstart_biaffine_from_hindi(parser_bho, parser_hi, hindi_ckpt)
 
     # ── Optimizer (only adapter + biaffine params — XLM-R is frozen) ──────────
     trainable = (
