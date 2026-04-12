@@ -245,6 +245,12 @@ def main():
 
     _ensure_xlmr_cache_symlink(save_dir, lang=lang)
 
+    # Point adapter_transformers cache to the already-downloaded HF model
+    import os as _os
+    _hf_hub = str(Path.home() / ".cache/huggingface/hub")
+    _os.environ["TRANSFORMERS_CACHE"] = _hf_hub
+    _os.environ["HF_HOME"]            = str(Path.home() / ".cache/huggingface")
+
     from trankit import TPipeline
 
     print("\n[Step 2] Initialising Bhojpuri TPipeline …")
@@ -258,8 +264,8 @@ def main():
         "max_epoch":          args.epochs,
         "batch_size":         args.batch_size,
         "gpu":                args.gpu,
-        "embedding":          XLM_R_LOCAL,
-        "learning_rate":      2e-5,  # low LR prevents catastrophic forgetting of Hindi warm-start
+        "embedding":          "xlm-roberta-base",
+        "learning_rate":      2e-5,
     })
 
     # ── Step 3: Inject Hindi warm-start weights ───────────────────────────────
