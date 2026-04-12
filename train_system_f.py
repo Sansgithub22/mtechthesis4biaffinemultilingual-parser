@@ -22,9 +22,6 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-
 import argparse
 import shutil
 import torch
@@ -207,7 +204,7 @@ def main():
                     help="Fraction of professor's data to use as dev set (default: 0.1)")
     args = ap.parse_args()
 
-    hindi_mdl = CHECKPT_DIR / "trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
+    hindi_mdl = CHECKPT_DIR / "trankit_hindi/trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
     save_dir  = str(CHECKPT_DIR / "trankit_bho_sysf")
     lang      = "bhojpuri_sysf"
 
