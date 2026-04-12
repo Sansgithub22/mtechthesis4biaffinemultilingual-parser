@@ -218,7 +218,16 @@ def warmstart_biaffine_from_hindi(parser_bho: BiaffineHeads, parser_hi: Biaffine
         print("  [WARN] Hindi checkpoint not found — skipping biaffine warm-start")
         return
     state = torch.load(str(hindi_ckpt), map_location="cpu")
-    hindi_tensors = list(state.get("adapters", {}).values())
+    hindi_tensors: list = []
+    def _collect(obj):
+        if isinstance(obj, torch.Tensor):
+            hindi_tensors.append(obj)
+        elif isinstance(obj, dict):
+            for v in obj.values(): _collect(v)
+        elif isinstance(obj, (list, tuple)):
+            for v in obj: _collect(v)
+    _collect(state)
+    print(f"  Found {len(hindi_tensors)} tensors in Hindi checkpoint")
     total_copied = 0
     for parser in [parser_bho, parser_hi]:
         our_sd = parser.state_dict()
@@ -279,7 +288,7 @@ def main():
                     help="Weight on adversarial GRL loss")
     ap.add_argument("--grl_alpha",     type=float, default=1.0,
                     help="Max GRL alpha (ramps 0→grl_alpha over training)")
-    ap.add_argument("--lr",            type=float, default=2e-4)
+    ap.add_argument("--lr",            type=float, default=5e-5)
     ap.add_argument("--disc_lr",       type=float, default=1e-3,
                     help="Discriminator learning rate (higher = faster adaptation)")
     ap.add_argument("--warmup_epochs", type=int,   default=0,
@@ -350,7 +359,7 @@ def main():
     print(f"  Discriminator params: {sum(p.numel() for p in discriminator.parameters()):,}")
 
     # ── Warm-start ────────────────────────────────────────────────────────────
-    hindi_ckpt = CHECKPT_DIR / "trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
+    hindi_ckpt = CHECKPT_DIR / "trankit_hindi/trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
     print("\n[4] Warm-starting from Hindi checkpoint …")
     warmstart_hindi_adapter(encoder, hindi_ckpt)
     warmstart_biaffine_from_hindi(parser_bho, parser_hi, hindi_ckpt)
