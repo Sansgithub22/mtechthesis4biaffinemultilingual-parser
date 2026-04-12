@@ -372,6 +372,12 @@ def main():
         _cache_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({"hi": cache_hi, "bho": cache_bho}, str(_cache_path))
         print(f"  Saved cache → {_cache_path}")
+        # Also copy to /kaggle/output/ so it can be added to the dataset
+        import shutil as _shutil
+        _kaggle_out = Path("/kaggle/output/xlmr_cache.pt")
+        if _kaggle_out.parent.exists():
+            _shutil.copy(str(_cache_path), str(_kaggle_out))
+            print(f"  Backup → {_kaggle_out}  (add to thesis_data dataset for next session)")
 
     # ── Training loop ─────────────────────────────────────────────────────────
     CKPT_DIR.mkdir(parents=True, exist_ok=True)
