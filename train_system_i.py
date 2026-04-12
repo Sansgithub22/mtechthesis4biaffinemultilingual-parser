@@ -42,9 +42,6 @@ from __future__ import annotations
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-
 import argparse
 import math
 import random
@@ -216,6 +213,32 @@ def warmstart_hindi_adapter(encoder: ParallelEncoder, hindi_ckpt: Path):
     print(f"  Hindi warm-start: {loaded} tensors → copied to Bhojpuri adapter")
 
 
+def warmstart_biaffine_from_hindi(parser_bho: BiaffineHeads, parser_hi: BiaffineHeads, hindi_ckpt: Path):
+    if not hindi_ckpt.exists():
+        print("  [WARN] Hindi checkpoint not found — skipping biaffine warm-start")
+        return
+    state = torch.load(str(hindi_ckpt), map_location="cpu")
+    hindi_tensors = list(state.get("adapters", {}).values())
+    total_copied = 0
+    for parser in [parser_bho, parser_hi]:
+        our_sd = parser.state_dict()
+        new_sd = {k: v.clone() for k, v in our_sd.items()}
+        used = set()
+        copied = 0
+        for ok, ov in our_sd.items():
+            if "label.biaffine" in ok:
+                continue
+            for i, hv in enumerate(hindi_tensors):
+                if i not in used and hv.shape == ov.shape:
+                    new_sd[ok] = hv.clone()
+                    used.add(i)
+                    copied += 1
+                    break
+        parser.load_state_dict(new_sd)
+        total_copied += copied
+    print(f"  Biaffine warm-start: copied {total_copied} tensors from Hindi tagger")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Evaluation  (identical to System H)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -259,7 +282,7 @@ def main():
     ap.add_argument("--lr",            type=float, default=2e-4)
     ap.add_argument("--disc_lr",       type=float, default=1e-3,
                     help="Discriminator learning rate (higher = faster adaptation)")
-    ap.add_argument("--warmup_epochs", type=int,   default=3,
+    ap.add_argument("--warmup_epochs", type=int,   default=0,
                     help="Delay KL + adversarial losses by N epochs")
     ap.add_argument("--patience",      type=int,   default=7)
     ap.add_argument("--dev_ratio",     type=float, default=0.1)
@@ -330,6 +353,7 @@ def main():
     hindi_ckpt = CHECKPT_DIR / "trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
     print("\n[4] Warm-starting from Hindi checkpoint …")
     warmstart_hindi_adapter(encoder, hindi_ckpt)
+    warmstart_biaffine_from_hindi(parser_bho, parser_hi, hindi_ckpt)
 
     # ── Optimizers ────────────────────────────────────────────────────────────
     trainable = (list(encoder.adapters.parameters()) +
