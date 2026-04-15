@@ -321,6 +321,28 @@ def main():
     print(f"  Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%")
     print(f"{'='*60}")
 
+    # ── Save results to file ──────────────────────────────────────────────────
+    import datetime
+    results_dir = ROOT / "results"
+    results_dir.mkdir(exist_ok=True)
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    results_file = results_dir / f"system_f_{ts}.txt"
+    with open(results_file, "w") as rf:
+        rf.write(f"System F — High-Quality Fine-tuning\n")
+        rf.write(f"=====================================\n")
+        rf.write(f"Date        : {datetime.datetime.now()}\n")
+        rf.write(f"Epochs      : {args.epochs}\n")
+        rf.write(f"Batch size  : {args.batch_size}\n")
+        rf.write(f"Dev ratio   : {args.dev_ratio}\n")
+        rf.write(f"Test ratio  : {args.test_ratio}\n\n")
+        rf.write(f"{'Test Set':<35} {'UAS':>8} {'LAS':>8}\n")
+        rf.write(f"{'─'*53}\n")
+        rf.write(f"{'Internal (10% prof data)':<35} {int_uas*100:>7.2f}% {int_las*100:>7.2f}%\n")
+        rf.write(f"{'BHTB (external gold)':<35} {bhtb_uas*100:>7.2f}% {bhtb_las*100:>7.2f}%\n")
+        rf.write(f"{'─'*53}\n")
+        rf.write(f"Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%\n")
+    print(f"\n  Results saved → {results_file}")
+
 
 if __name__ == "__main__":
     main()

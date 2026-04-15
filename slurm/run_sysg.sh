@@ -3,7 +3,6 @@
 #SBATCH -p gpu
 #SBATCH --gres=gpu:1
 #SBATCH -c 8
-#SBATCH --mem=16G
 #SBATCH -t 24:00:00
 #SBATCH -o logs/sysg_%j.out
 #SBATCH -e logs/sysg_%j.err
@@ -13,8 +12,8 @@ echo "Job ID: $SLURM_JOB_ID"
 echo "Node  : $SLURMD_NODENAME"
 echo "Start : $(date)"
 
-module load miniconda_23.5.2_python_3.11.4
-source activate ~/thesis_env
+source /home/apps/miniconda3/etc/profile.d/conda.sh
+conda activate /home/ksanskruti.s.cse21.iitbhu/thesis_env
 
 cd ~/mtechthesis4biaffinemultilingual-parser
 mkdir -p logs
