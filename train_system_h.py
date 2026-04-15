@@ -284,6 +284,8 @@ def main():
     ap.add_argument("--warmup_epochs", type=int,   default=0,
                     help="Delay KL distillation by N epochs (Hindi parser warm-up)")
     ap.add_argument("--dev_ratio",     type=float, default=0.1)
+    ap.add_argument("--test_ratio",    type=float, default=0.1,
+                    help="Fraction of data to use as internal test set")
     ap.add_argument("--seed",          type=int,   default=42)
     args = ap.parse_args()
 
@@ -323,14 +325,16 @@ def main():
     print(f"  Parallel pairs : {len(hi_sents):,}")
     print(f"  BHTB test      : {len(test_sents):,}")
 
-    n_total = len(hi_sents)
-    n_dev   = max(1, int(n_total * args.dev_ratio))
-    n_train = n_total - n_dev
-    all_idx  = list(range(n_total))
+    n_total   = len(hi_sents)
+    n_test    = max(1, int(n_total * args.test_ratio))
+    n_dev     = max(1, int(n_total * args.dev_ratio))
+    n_train   = n_total - n_dev - n_test
+    all_idx   = list(range(n_total))
     train_idx = all_idx[:n_train]
-    dev_idx   = all_idx[n_train:]
+    dev_idx   = all_idx[n_train:n_train + n_dev]
+    test_idx  = all_idx[n_train + n_dev:]
     dev_bho   = [bho_sents[i] for i in dev_idx]
-    print(f"  Train : {n_train:,} | Dev : {n_dev:,}")
+    print(f"  Train : {n_train:,} ({100*n_train/n_total:.0f}%) | Dev : {n_dev:,} ({100*n_dev/n_total:.0f}%) | Test : {n_test:,} ({100*n_test/n_total:.0f}%)")
 
     # ── Vocabulary ────────────────────────────────────────────────────────────
     print("\n[2] Building relation vocabulary …")
@@ -451,8 +455,6 @@ def main():
                 dev_pr_all.append([vocab.decode(r) for r in pr[0].cpu().tolist()])
         dev_uas, dev_las = uas_las(dev_bho, dev_ph_all, dev_pr_all)
         encoder.train(); parser_bho.train()
-        # BHTB evaluation (reference)
-        bhtb_uas, bhtb_las = evaluate(encoder, parser_bho, vocab, test_sents, device)
 
         improved = dev_las > best_las
         if improved:
@@ -461,8 +463,7 @@ def main():
         print(f"Epoch {epoch:3d}/{args.epochs} | "
               f"bho={l_bho_s/N:.3f} hi={l_hi_s/N:.3f} "
               f"cos={l_cos_s/N:.3f} kl={l_kl_s/N:.3f} cts={l_cts_s/N:.3f} "
-              f"| Dev UAS={dev_uas*100:.2f}% LAS={dev_las*100:.2f}%"
-              f"  BHTB UAS={bhtb_uas*100:.2f}% LAS={bhtb_las*100:.2f}%",
+              f"| Dev UAS={dev_uas*100:.2f}% LAS={dev_las*100:.2f}%",
               end="")
 
         if improved:
@@ -486,14 +487,29 @@ def main():
             print(f"\nEarly stopping at epoch {epoch}")
             break
 
-    # ── Final summary ─────────────────────────────────────────────────────────
+    # ── Final summary — load BEST checkpoint first ────────────────────────────
+    print(f"\n  Loading best checkpoint for final evaluation …")
+    ckpt = torch.load(str(CKPT_PATH), map_location=device)
+    encoder.load_state_dict(ckpt["encoder"])
+    parser_bho.load_state_dict(ckpt["parser_bho"])
+
     print(f"\n{'='*60}")
-    print(f"  System H — Final Results")
+    print(f"  System H — Final Results  (best checkpoint, epoch {ckpt['epoch']})")
     print(f"{'='*60}")
     print(f"  Best Dev LAS (prof. data) : {best_las*100:.2f}%")
+
+    # Internal test set (10% of prof's data — never seen during training)
+    int_test_sents = [bho_sents[i] for i in test_idx]
+    int_test_uas, int_test_las = evaluate(encoder, parser_bho, vocab, int_test_sents, device)
+
+    # BHTB external test (never seen during training)
     final_bhtb_uas, final_bhtb_las = evaluate(encoder, parser_bho, vocab, test_sents, device)
-    print(f"  Final BHTB UAS            : {final_bhtb_uas*100:.2f}%")
-    print(f"  Final BHTB LAS            : {final_bhtb_las*100:.2f}%")
+
+    print(f"  {'Test Set':<35} {'UAS':>7} {'LAS':>7}")
+    print(f"  {'─'*51}")
+    print(f"  {'Internal (10% prof data)':<35} {int_test_uas*100:>6.2f}% {int_test_las*100:>6.2f}%  ({len(test_idx):,} sents)")
+    print(f"  {'BHTB (external gold)':<35} {final_bhtb_uas*100:>6.2f}% {final_bhtb_las*100:>6.2f}%")
+    print(f"  {'─'*51}")
     print(f"  Checkpoint                : {CKPT_PATH}")
     print(f"\n  Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%")
     print(f"{'='*60}")

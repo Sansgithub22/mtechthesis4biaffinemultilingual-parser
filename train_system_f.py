@@ -68,10 +68,11 @@ ROOT = Path(__file__).parent
 PROF_BHO = ROOT / "bhojpuri_matched_transferred.conllu"
 PROF_HI  = ROOT / "hindi_matched.conllu"
 
-# Where to write the train/dev split of professor's Bhojpuri data
+# Where to write the train/dev/test split of professor's Bhojpuri data
 SPLIT_DIR  = ROOT / "data_files" / "sysf"
 SYSF_TRAIN = SPLIT_DIR / "bho_sysf_train.conllu"
 SYSF_DEV   = SPLIT_DIR / "bho_sysf_dev.conllu"
+SYSF_TEST  = SPLIT_DIR / "bho_sysf_test.conllu"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -103,34 +104,41 @@ def _write_sentences(sentences: list, path: Path):
                 f.write("\n")
 
 
-def build_train_dev_split(dev_ratio: float = 0.1):
+def build_splits(dev_ratio: float = 0.1, test_ratio: float = 0.1):
     """
-    Split bhojpuri_matched_transferred.conllu into train/dev.
-    Uses the last dev_ratio fraction as dev to keep train sentences domain-consistent.
+    Split bhojpuri_matched_transferred.conllu into train/dev/test (80/10/10).
+    Sequential split to keep train sentences domain-consistent.
     """
-    if SYSF_TRAIN.exists() and SYSF_DEV.exists():
+    if SYSF_TRAIN.exists() and SYSF_DEV.exists() and SYSF_TEST.exists():
         n_train = _count_sents(SYSF_TRAIN)
         n_dev   = _count_sents(SYSF_DEV)
-        print(f"  Split already exists: {n_train:,} train / {n_dev:,} dev — reusing.")
+        n_test  = _count_sents(SYSF_TEST)
+        print(f"  Split already exists: {n_train:,} train / {n_dev:,} dev / {n_test:,} test — reusing.")
         return
 
     print(f"  Reading {PROF_BHO} …")
     sents = _read_sentences(PROF_BHO)
     total = len(sents)
+    n_test  = max(1, int(total * test_ratio))
     n_dev   = max(1, int(total * dev_ratio))
-    n_train = total - n_dev
+    n_train = total - n_dev - n_test
 
     train_sents = sents[:n_train]
-    dev_sents   = sents[n_train:]
+    dev_sents   = sents[n_train:n_train + n_dev]
+    test_sents  = sents[n_train + n_dev:]
 
+    train_pct = 100 * n_train / total
     print(f"  Total sentences : {total:,}")
-    print(f"  Train split     : {len(train_sents):,}  ({100*(1-dev_ratio):.0f}%)")
+    print(f"  Train split     : {len(train_sents):,}  ({train_pct:.0f}%)")
     print(f"  Dev split       : {len(dev_sents):,}  ({100*dev_ratio:.0f}%)")
+    print(f"  Test split      : {len(test_sents):,}  ({100*test_ratio:.0f}%)")
 
     _write_sentences(train_sents, SYSF_TRAIN)
     _write_sentences(dev_sents,   SYSF_DEV)
+    _write_sentences(test_sents,  SYSF_TEST)
     print(f"  Written → {SYSF_TRAIN}")
     print(f"  Written → {SYSF_DEV}")
+    print(f"  Written → {SYSF_TEST}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -202,6 +210,8 @@ def main():
     ap.add_argument("--gpu",        action="store_true", default=False)
     ap.add_argument("--dev_ratio",  type=float, default=0.1,
                     help="Fraction of professor's data to use as dev set (default: 0.1)")
+    ap.add_argument("--test_ratio", type=float, default=0.1,
+                    help="Fraction of professor's data to use as internal test set (default: 0.1)")
     args = ap.parse_args()
 
     hindi_mdl = CHECKPT_DIR / "trankit_hindi/trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
@@ -228,21 +238,13 @@ def main():
     print(f"  Save   : {save_dir}/xlm-roberta-base/{lang}/")
     print(f"  Epochs : {args.epochs}   batch_size: {args.batch_size}")
 
-    # ── Step 1: Build train/dev split from professor's data ───────────────────
-    print("\n[Step 1] Building train/dev split …")
-    build_train_dev_split(dev_ratio=args.dev_ratio)
+    # ── Step 1: Build train/dev/test split from professor's data ─────────────
+    print("\n[Step 1] Building train/dev/test split (80/10/10) …")
+    build_splits(dev_ratio=args.dev_ratio, test_ratio=args.test_ratio)
 
     # ── Step 2: Initialise Trankit TPipeline on Bhojpuri data ─────────────────
-    # Use BHTB test set as dev so evaluation scores are meaningful.
-    # The professor's Bhojpuri transfer data has annotation artefacts (cycles,
-    # multiple roots) that corrupt the UD scorer even after patching — BHTB is
-    # clean UD data and gives real UAS/LAS numbers during training.
-    from config import BHOJPURI_TEST
-    bhtb_dev = BHOJPURI_TEST
-    if not bhtb_dev.exists():
-        print(f"  [WARN] BHTB test not found at {bhtb_dev}, falling back to sysf dev")
-        bhtb_dev = SYSF_DEV
-
+    # Use the 10% dev split for model selection — BHTB is never seen during
+    # training (it is only used for final evaluation after training ends).
     _ensure_xlmr_cache_symlink(save_dir, lang=lang)
 
     # Point adapter_transformers cache to the already-downloaded HF model
@@ -254,13 +256,14 @@ def main():
     from trankit import TPipeline
 
     print("\n[Step 2] Initialising Bhojpuri TPipeline …")
-    print(f"  Dev set : {bhtb_dev}  (BHTB — clean UD data for reliable eval)")
+    print(f"  Dev set : {SYSF_DEV}  (10% split — used for model selection only)")
+    print(f"  Test sets evaluated AFTER training: internal 10% + BHTB")
     trainer = TPipeline(training_config={
         "category":           lang,
         "task":               "posdep",
         "save_dir":           save_dir,
         "train_conllu_fpath": str(SYSF_TRAIN),
-        "dev_conllu_fpath":   str(bhtb_dev),
+        "dev_conllu_fpath":   str(SYSF_DEV),
         "max_epoch":          args.epochs,
         "batch_size":         args.batch_size,
         "gpu":                args.gpu,
@@ -278,7 +281,45 @@ def main():
 
     mdl = Path(save_dir) / f"xlm-roberta-base/{lang}/{lang}.tagger.mdl"
     print(f"\nDone. Saved → {mdl}")
-    print("Next: python3 evaluate_trankit.py")
+
+    # ── Step 5: Final evaluation on both test sets ────────────────────────────
+    # Test sets are only touched HERE, after training is fully complete.
+    print("\n[Step 5] Final evaluation on held-out test sets …")
+    from evaluate_trankit import eval_system
+    from utils.conllu_utils import read_conllu
+    from config import BHOJPURI_TEST
+
+    int_test_sents = read_conllu(SYSF_TEST)
+    bhtb_test_sents = read_conllu(BHOJPURI_TEST) if BHOJPURI_TEST.exists() else []
+
+    print(f"\n  — Internal test set (10% of prof's data, {len(int_test_sents):,} sents) —")
+    int_uas, int_las, _ = eval_system(
+        lang=lang, save_dir=save_dir, train_conllu=SYSF_TRAIN,
+        test_sents=int_test_sents, gpu=args.gpu,
+        label="F: Internal test (prof's data 10%)",
+    )
+
+    if bhtb_test_sents:
+        print(f"\n  — BHTB test set ({len(bhtb_test_sents):,} sents) —")
+        bhtb_uas, bhtb_las, _ = eval_system(
+            lang=lang, save_dir=save_dir, train_conllu=SYSF_TRAIN,
+            test_sents=bhtb_test_sents, gpu=args.gpu,
+            label="F: BHTB test",
+        )
+    else:
+        bhtb_uas = bhtb_las = 0.0
+        print("  [WARN] BHTB test file not found — skipping")
+
+    print(f"\n{'='*60}")
+    print(f"  System F — Final Results")
+    print(f"{'='*60}")
+    print(f"  {'Test Set':<35} {'UAS':>7} {'LAS':>7}")
+    print(f"  {'─'*51}")
+    print(f"  {'Internal (10% prof data)':<35} {int_uas*100:>6.2f}% {int_las*100:>6.2f}%")
+    print(f"  {'BHTB (external gold)':<35} {bhtb_uas*100:>6.2f}% {bhtb_las*100:>6.2f}%")
+    print(f"  {'─'*51}")
+    print(f"  Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%")
+    print(f"{'='*60}")
 
 
 if __name__ == "__main__":
