@@ -558,6 +558,37 @@ def main():
     print(f"\n  Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%")
     print(f"{'='*62}")
 
+    # ── Save results to file ──────────────────────────────────────────────────
+    import datetime
+    results_dir = ROOT_DIR / "results"
+    results_dir.mkdir(exist_ok=True)
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    results_file = results_dir / f"system_i_{ts}.txt"
+    with open(results_file, "w") as rf:
+        rf.write(f"System I — Language-Agnostic SACT (LA-SACT)\n")
+        rf.write(f"=============================================\n")
+        rf.write(f"Date          : {datetime.datetime.now()}\n")
+        rf.write(f"Best epoch    : {ckpt['epoch']}\n")
+        rf.write(f"Best Dev LAS  : {best_las*100:.2f}%\n")
+        rf.write(f"Epochs        : {args.epochs}\n")
+        rf.write(f"lambda_hi     : {args.lambda_hi}\n")
+        rf.write(f"lambda_cosine : {args.lambda_cosine}\n")
+        rf.write(f"lambda_arc    : {args.lambda_arc}\n")
+        rf.write(f"lambda_cts    : {args.lambda_cts}\n")
+        rf.write(f"lambda_adv    : {args.lambda_adv}\n")
+        rf.write(f"grl_alpha     : {args.grl_alpha}\n")
+        rf.write(f"lr            : {args.lr}\n")
+        rf.write(f"warmup_epochs : {args.warmup_epochs}\n")
+        rf.write(f"dev_ratio     : {args.dev_ratio}\n")
+        rf.write(f"test_ratio    : {args.test_ratio}\n\n")
+        rf.write(f"{'Test Set':<35} {'UAS':>8} {'LAS':>8}\n")
+        rf.write(f"{'─'*53}\n")
+        rf.write(f"{'Internal (10% prof data)':<35} {int_test_uas*100:>7.2f}% {int_test_las*100:>7.2f}%  ({len(test_idx)} sents)\n")
+        rf.write(f"{'BHTB (external gold)':<35} {final_bhtb_uas*100:>7.2f}% {final_bhtb_las*100:>7.2f}%\n")
+        rf.write(f"{'─'*53}\n")
+        rf.write(f"Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%\n")
+    print(f"\n  Results saved → {results_file}")
+
 
 if __name__ == "__main__":
     main()
