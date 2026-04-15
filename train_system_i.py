@@ -295,6 +295,8 @@ def main():
                     help="Delay KL + adversarial losses by N epochs")
     ap.add_argument("--patience",      type=int,   default=7)
     ap.add_argument("--dev_ratio",     type=float, default=0.1)
+    ap.add_argument("--test_ratio",    type=float, default=0.1,
+                    help="Fraction of data to use as internal test set")
     ap.add_argument("--seed",          type=int,   default=42)
     args = ap.parse_args()
 
@@ -331,13 +333,15 @@ def main():
     bho_sents  = read_conllu(PROF_BHO)
     test_sents = read_conllu(BHTB_TEST)
     assert len(hi_sents) == len(bho_sents)
-    n_total = len(hi_sents)
-    n_dev   = max(1, int(n_total * args.dev_ratio))
-    n_train = n_total - n_dev
+    n_total   = len(hi_sents)
+    n_test    = max(1, int(n_total * args.test_ratio))
+    n_dev     = max(1, int(n_total * args.dev_ratio))
+    n_train   = n_total - n_dev - n_test
     train_idx = list(range(n_train))
-    dev_idx   = list(range(n_train, n_total))
+    dev_idx   = list(range(n_train, n_train + n_dev))
+    test_idx  = list(range(n_train + n_dev, n_total))
     dev_bho   = [bho_sents[i] for i in dev_idx]
-    print(f"  Parallel pairs : {n_total:,}  (train={n_train:,} dev={n_dev:,})")
+    print(f"  Parallel pairs : {n_total:,}  (train={n_train:,} [{100*n_train/n_total:.0f}%]  dev={n_dev:,} [{100*n_dev/n_total:.0f}%]  test={n_test:,} [{100*n_test/n_total:.0f}%])")
     print(f"  BHTB test      : {len(test_sents):,}")
 
     # ── Vocabulary ────────────────────────────────────────────────────────────
@@ -493,15 +497,13 @@ def main():
                 dev_pr_all.append([vocab.decode(r) for r in pr[0].cpu().tolist()])
         dev_uas, dev_las = uas_las(dev_bho, dev_ph_all, dev_pr_all)
         encoder.train(); parser_bho.train()
-        bhtb_uas, bhtb_las = evaluate(encoder, parser_bho, vocab, test_sents, device)
         improved = dev_las > best_las
 
         print(f"Ep {epoch:3d}/{args.epochs} α={grl_alpha:.2f} | "
               f"bho={l_bho_s/N:.3f} hi={l_hi_s/N:.3f} "
               f"cos={l_cos_s/N:.3f} kl={l_kl_s/N:.3f} cts={l_cts_s/N:.3f} "
               f"adv={l_adv_s/N:.3f} disc={l_disc_s/N:.3f} "
-              f"| Dev UAS={dev_uas*100:.2f}% LAS={dev_las*100:.2f}%"
-              f"  BHTB={bhtb_uas*100:.2f}%/{bhtb_las*100:.2f}%",
+              f"| Dev UAS={dev_uas*100:.2f}% LAS={dev_las*100:.2f}%",
               end="")
 
         if improved:
@@ -527,14 +529,31 @@ def main():
             print(f"\nEarly stopping at epoch {epoch}")
             break
 
-    # ── Summary ───────────────────────────────────────────────────────────────
+    # ── Summary — load BEST checkpoint first ─────────────────────────────────
+    print(f"\n  Loading best checkpoint for final evaluation …")
+    ckpt = torch.load(str(CKPT_PATH), map_location=device)
+    encoder.load_state_dict(ckpt["encoder"])
+    parser_bho.load_state_dict(ckpt["parser_bho"])
+    if "discriminator" in ckpt:
+        discriminator.load_state_dict(ckpt["discriminator"])
+
     print(f"\n{'='*62}")
-    print(f"  System I — Final Results")
+    print(f"  System I — Final Results  (best checkpoint, epoch {ckpt['epoch']})")
     print(f"{'='*62}")
     print(f"  Best Dev LAS (prof. data) : {best_las*100:.2f}%")
+
+    # Internal test set (10% of prof's data — never seen during training)
+    int_test_sents = [bho_sents[i] for i in test_idx]
+    int_test_uas, int_test_las = evaluate(encoder, parser_bho, vocab, int_test_sents, device)
+
+    # BHTB external test (never seen during training)
     final_bhtb_uas, final_bhtb_las = evaluate(encoder, parser_bho, vocab, test_sents, device)
-    print(f"  Final BHTB UAS            : {final_bhtb_uas*100:.2f}%")
-    print(f"  Final BHTB LAS            : {final_bhtb_las*100:.2f}%")
+
+    print(f"  {'Test Set':<35} {'UAS':>7} {'LAS':>7}")
+    print(f"  {'─'*51}")
+    print(f"  {'Internal (10% prof data)':<35} {int_test_uas*100:>6.2f}% {int_test_las*100:>6.2f}%  ({len(test_idx):,} sents)")
+    print(f"  {'BHTB (external gold)':<35} {final_bhtb_uas*100:>6.2f}% {final_bhtb_las*100:>6.2f}%")
+    print(f"  {'─'*51}")
     print(f"  Checkpoint                : {CKPT_PATH}")
     print(f"\n  Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%")
     print(f"{'='*62}")
