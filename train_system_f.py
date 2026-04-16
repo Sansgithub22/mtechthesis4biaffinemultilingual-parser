@@ -214,7 +214,7 @@ def main():
                     help="Fraction of professor's data to use as internal test set (default: 0.1)")
     args = ap.parse_args()
 
-    hindi_mdl = CHECKPT_DIR / "trankit_hindi/trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
+    hindi_mdl = CHECKPT_DIR / "trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
     save_dir  = str(CHECKPT_DIR / "trankit_bho_sysf")
     lang      = "bhojpuri_sysf"
 
