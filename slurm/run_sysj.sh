@@ -15,9 +15,9 @@ echo "  Start   : $(date)"
 echo "============================================"
 
 source /home/apps/miniconda3/etc/profile.d/conda.sh
-conda activate thesis
+conda activate /home/ksanskruti.s.cse21.iitbhu/thesis_env
 
-cd /home/ksanskruti.s.cse21.iitbhu/mtechthesis4biaffinemultilingual-parser
+cd ~/mtechthesis4biaffinemultilingual-parser
 mkdir -p logs
 
 python3 train_system_j.py \
