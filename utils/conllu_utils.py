@@ -124,6 +124,13 @@ def read_conllu(path: str | Path) -> List[Sentence]:
 # ─────────────────────────────────────────────────────────────────────────────
 # Writer
 # ─────────────────────────────────────────────────────────────────────────────
+def filter_single_root(sentences: List[Sentence]) -> List[int]:
+    """Return indices of sentences with exactly one root (head=0) token.
+    Multi-root sentences (annotation transfer artefacts) are excluded."""
+    return [i for i, s in enumerate(sentences)
+            if sum(1 for t in s.tokens if t.head == 0) == 1]
+
+
 def write_conllu(sentences: List[Sentence], path: str | Path):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:

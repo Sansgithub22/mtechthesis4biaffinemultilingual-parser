@@ -107,17 +107,19 @@ def _write_sentences(sentences: list, path: Path):
 def build_splits(dev_ratio: float = 0.1, test_ratio: float = 0.1):
     """
     Split bhojpuri_matched_transferred.conllu into train/dev/test (80/10/10).
+    Only single-root sentences are kept (multi-root = broken annotation transfer).
     Sequential split to keep train sentences domain-consistent.
+    Always rebuilds to ensure single-root filtering is applied.
     """
-    if SYSF_TRAIN.exists() and SYSF_DEV.exists() and SYSF_TEST.exists():
-        n_train = _count_sents(SYSF_TRAIN)
-        n_dev   = _count_sents(SYSF_DEV)
-        n_test  = _count_sents(SYSF_TEST)
-        print(f"  Split already exists: {n_train:,} train / {n_dev:,} dev / {n_test:,} test — reusing.")
-        return
+    from utils.conllu_utils import read_conllu, write_conllu, filter_single_root
 
     print(f"  Reading {PROF_BHO} …")
-    sents = _read_sentences(PROF_BHO)
+    all_sents = read_conllu(PROF_BHO)
+    good_idx = filter_single_root(all_sents)
+    sents = [all_sents[i] for i in good_idx]
+    print(f"  Single-root sentences: {len(sents):,} / {len(all_sents):,} "
+          f"({100*len(sents)/len(all_sents):.0f}%)")
+
     total = len(sents)
     n_test  = max(1, int(total * test_ratio))
     n_dev   = max(1, int(total * dev_ratio))
@@ -127,15 +129,14 @@ def build_splits(dev_ratio: float = 0.1, test_ratio: float = 0.1):
     dev_sents   = sents[n_train:n_train + n_dev]
     test_sents  = sents[n_train + n_dev:]
 
-    train_pct = 100 * n_train / total
     print(f"  Total sentences : {total:,}")
-    print(f"  Train split     : {len(train_sents):,}  ({train_pct:.0f}%)")
+    print(f"  Train split     : {len(train_sents):,}  ({100*n_train/total:.0f}%)")
     print(f"  Dev split       : {len(dev_sents):,}  ({100*dev_ratio:.0f}%)")
     print(f"  Test split      : {len(test_sents):,}  ({100*test_ratio:.0f}%)")
 
-    _write_sentences(train_sents, SYSF_TRAIN)
-    _write_sentences(dev_sents,   SYSF_DEV)
-    _write_sentences(test_sents,  SYSF_TEST)
+    write_conllu(train_sents, SYSF_TRAIN)
+    write_conllu(dev_sents,   SYSF_DEV)
+    write_conllu(test_sents,  SYSF_TEST)
     print(f"  Written → {SYSF_TRAIN}")
     print(f"  Written → {SYSF_DEV}")
     print(f"  Written → {SYSF_TEST}")

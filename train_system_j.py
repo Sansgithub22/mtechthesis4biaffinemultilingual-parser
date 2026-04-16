@@ -55,7 +55,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from config import CHECKPT_DIR, DATA_DIR, XLM_R_LOCAL
-from utils.conllu_utils import read_conllu, Sentence
+from utils.conllu_utils import read_conllu, filter_single_root, Sentence
 from utils.metrics import uas_las
 
 from model.parallel_encoder import ParallelEncoder
@@ -295,6 +295,8 @@ def main():
     ap.add_argument("--warmup_epochs",    type=int,   default=2,
                     help="Delay KL + contrastive losses by N epochs")
     ap.add_argument("--dev_ratio",        type=float, default=0.1)
+    ap.add_argument("--test_ratio",       type=float, default=0.1,
+                    help="Fraction of data to use as internal test set")
     ap.add_argument("--seed",             type=int,   default=42)
     args = ap.parse_args()
 
@@ -331,14 +333,21 @@ def main():
     bho_sents  = read_conllu(PROF_BHO)
     test_sents = read_conllu(BHTB_TEST)
     assert len(hi_sents) == len(bho_sents)
-    n_total = len(hi_sents)
-    n_dev   = max(1, int(n_total * args.dev_ratio))
-    n_train = n_total - n_dev
-    train_idx = list(range(n_train))
-    dev_idx   = list(range(n_train, n_total))
-    dev_bho   = [bho_sents[i] for i in dev_idx]
-    print(f"  Parallel pairs : {n_total:,}  (train={n_train:,} dev={n_dev:,})")
+    print(f"  Parallel pairs : {len(hi_sents):,}")
     print(f"  BHTB test      : {len(test_sents):,}")
+
+    good_idx  = filter_single_root(bho_sents)
+    print(f"  Single-root (well-formed): {len(good_idx):,} / {len(bho_sents):,}")
+
+    n_total   = len(good_idx)
+    n_test    = max(1, int(n_total * args.test_ratio))
+    n_dev     = max(1, int(n_total * args.dev_ratio))
+    n_train   = n_total - n_dev - n_test
+    train_idx = good_idx[:n_train]
+    dev_idx   = good_idx[n_train:n_train + n_dev]
+    test_idx  = good_idx[n_train + n_dev:]
+    dev_bho   = [bho_sents[i] for i in dev_idx]
+    print(f"  Train : {n_train:,} ({100*n_train/n_total:.0f}%) | Dev : {n_dev:,} ({100*n_dev/n_total:.0f}%) | Test : {n_test:,} ({100*n_test/n_total:.0f}%)")
 
     # ── Vocabulary ────────────────────────────────────────────────────────────
     print("\n[2] Building vocabulary …")
@@ -464,9 +473,6 @@ def main():
         dev_uas, dev_las = uas_las(dev_bho, dev_ph_all, dev_pr_all)
         encoder.train(); parser_bho.train()
 
-        # ── BHTB reference ────────────────────────────────────────────────────
-        bhtb_uas, bhtb_las = evaluate(encoder, parser_bho, vocab, test_sents, device)
-
         improved = dev_las > best_las
         if improved:
             best_las = dev_las; no_improve = 0
@@ -487,18 +493,69 @@ def main():
               f"cos={l_cos_s/N:.3f} kl={l_kl_s/N:.3f} "
               f"cts={l_cts_s/N:.3f} con={l_con_s/N:.3f} "
               f"| Dev UAS={dev_uas*100:.2f}% LAS={dev_las*100:.2f}%"
-              f"  BHTB UAS={bhtb_uas*100:.2f}% LAS={bhtb_las*100:.2f}%"
               + (" ← BEST" if improved else ""))
 
         if no_improve >= args.patience:
             print(f"\nEarly stopping at epoch {epoch}")
             break
 
-    print("\n" + "="*64)
-    print(f" System J — Final Results")
-    print(f" Best Dev LAS  : {best_las*100:.2f}%")
-    print(f" Checkpoint    : {CKPT_PATH}")
-    print("="*64)
+    # ── Final summary — load BEST checkpoint first ────────────────────────────
+    print(f"\n  Loading best checkpoint for final evaluation …")
+    ckpt = torch.load(str(CKPT_PATH), map_location=device)
+    encoder.load_state_dict(ckpt["encoder"])
+    parser_bho.load_state_dict(ckpt["parser_bho"])
+
+    print(f"\n{'='*60}")
+    print(f"  System J — Final Results  (best checkpoint, epoch {ckpt['epoch']})")
+    print(f"{'='*60}")
+    print(f"  Best Dev LAS (prof. data) : {best_las*100:.2f}%")
+
+    # Internal test set (10% of prof's data — never seen during training)
+    int_test_sents = [bho_sents[i] for i in test_idx]
+    int_test_uas, int_test_las = evaluate(encoder, parser_bho, vocab, int_test_sents, device)
+
+    # BHTB external test (never seen during training)
+    final_bhtb_uas, final_bhtb_las = evaluate(encoder, parser_bho, vocab, test_sents, device)
+
+    print(f"  {'Test Set':<35} {'UAS':>7} {'LAS':>7}")
+    print(f"  {'─'*51}")
+    print(f"  {'Internal (10% prof data)':<35} {int_test_uas*100:>6.2f}% {int_test_las*100:>6.2f}%  ({len(test_idx):,} sents)")
+    print(f"  {'BHTB (external gold)':<35} {final_bhtb_uas*100:>6.2f}% {final_bhtb_las*100:>6.2f}%")
+    print(f"  {'─'*51}")
+    print(f"  Checkpoint                : {CKPT_PATH}")
+    print(f"\n  Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%")
+    print(f"{'='*60}")
+
+    # ── Save results to file ──────────────────────────────────────────────────
+    import datetime
+    results_dir = ROOT_DIR / "results"
+    results_dir.mkdir(exist_ok=True)
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    results_file = results_dir / f"system_j_{ts}.txt"
+    with open(results_file, "w") as rf:
+        rf.write(f"System J — Relation-Specific Contrastive SACT (RS-SACT)\n")
+        rf.write(f"======================================================\n")
+        rf.write(f"Date          : {datetime.datetime.now()}\n")
+        rf.write(f"Best epoch    : {ckpt['epoch']}\n")
+        rf.write(f"Best Dev LAS  : {best_las*100:.2f}%\n")
+        rf.write(f"Epochs        : {args.epochs}\n")
+        rf.write(f"lambda_hi     : {args.lambda_hi}\n")
+        rf.write(f"lambda_cosine : {args.lambda_cosine}\n")
+        rf.write(f"lambda_arc    : {args.lambda_arc}\n")
+        rf.write(f"lambda_cts    : {args.lambda_cts}\n")
+        rf.write(f"lambda_contrast: {args.lambda_contrast}\n")
+        rf.write(f"tau           : {args.tau}\n")
+        rf.write(f"lr            : {args.lr}\n")
+        rf.write(f"warmup_epochs : {args.warmup_epochs}\n")
+        rf.write(f"dev_ratio     : {args.dev_ratio}\n")
+        rf.write(f"test_ratio    : {args.test_ratio}\n\n")
+        rf.write(f"{'Test Set':<35} {'UAS':>8} {'LAS':>8}\n")
+        rf.write(f"{'─'*53}\n")
+        rf.write(f"{'Internal (10% prof data)':<35} {int_test_uas*100:>7.2f}% {int_test_las*100:>7.2f}%  ({len(test_idx)} sents)\n")
+        rf.write(f"{'BHTB (external gold)':<35} {final_bhtb_uas*100:>7.2f}% {final_bhtb_las*100:>7.2f}%\n")
+        rf.write(f"{'─'*53}\n")
+        rf.write(f"Baseline (System A zero-shot): UAS 53.48% / LAS 34.84%\n")
+    print(f"\n  Results saved → {results_file}")
 
 
 if __name__ == "__main__":

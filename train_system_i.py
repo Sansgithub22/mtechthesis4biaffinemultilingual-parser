@@ -333,13 +333,17 @@ def main():
     bho_sents  = read_conllu(PROF_BHO)
     test_sents = read_conllu(BHTB_TEST)
     assert len(hi_sents) == len(bho_sents)
-    n_total   = len(hi_sents)
+    from utils.conllu_utils import filter_single_root
+    good_idx  = filter_single_root(bho_sents)
+    print(f"  Single-root (well-formed): {len(good_idx):,} / {len(bho_sents):,}")
+
+    n_total   = len(good_idx)
     n_test    = max(1, int(n_total * args.test_ratio))
     n_dev     = max(1, int(n_total * args.dev_ratio))
     n_train   = n_total - n_dev - n_test
-    train_idx = list(range(n_train))
-    dev_idx   = list(range(n_train, n_train + n_dev))
-    test_idx  = list(range(n_train + n_dev, n_total))
+    train_idx = good_idx[:n_train]
+    dev_idx   = good_idx[n_train:n_train + n_dev]
+    test_idx  = good_idx[n_train + n_dev:]
     dev_bho   = [bho_sents[i] for i in dev_idx]
     print(f"  Parallel pairs : {n_total:,}  (train={n_train:,} [{100*n_train/n_total:.0f}%]  dev={n_dev:,} [{100*n_dev/n_total:.0f}%]  test={n_test:,} [{100*n_test/n_total:.0f}%])")
     print(f"  BHTB test      : {len(test_sents):,}")

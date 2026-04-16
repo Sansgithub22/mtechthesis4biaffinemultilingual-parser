@@ -275,15 +275,19 @@ def main():
     test_sents = read_conllu(BHTB_TEST)
     print(f"  BHTB test      : {len(test_sents):,} sentences")
 
-    # Train/dev/test split (80/10/10)
-    n_total = len(hi_sents)
+    # Filter to well-formed single-root Bhojpuri sentences
+    from utils.conllu_utils import filter_single_root
+    good_idx = filter_single_root(bho_sents)
+    print(f"  Single-root (well-formed): {len(good_idx):,} / {len(bho_sents):,}")
+
+    # Train/dev/test split (80/10/10) on filtered data
+    n_total = len(good_idx)
     n_test  = max(1, int(n_total * args.test_ratio))
     n_dev   = max(1, int(n_total * args.dev_ratio))
     n_train = n_total - n_dev - n_test
-    indices   = list(range(n_total))
-    train_idx = indices[:n_train]
-    dev_idx   = indices[n_train:n_train + n_dev]
-    test_idx  = indices[n_train + n_dev:]
+    train_idx = good_idx[:n_train]
+    dev_idx   = good_idx[n_train:n_train + n_dev]
+    test_idx  = good_idx[n_train + n_dev:]
     print(f"  Train pairs    : {len(train_idx):,}  ({100*n_train/n_total:.0f}%)")
     print(f"  Dev pairs      : {len(dev_idx):,}  ({100*n_dev/n_total:.0f}%)")
     print(f"  Test pairs     : {len(test_idx):,}  ({100*n_test/n_total:.0f}%)")
