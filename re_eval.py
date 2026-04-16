@@ -38,6 +38,7 @@ PREV_RESULTS = {
     "g": dict(int_uas=55.49, int_las=49.79, bhtb_uas=7.92,  bhtb_las=0.28),
     "h": dict(int_uas=55.08, int_las=49.36, bhtb_uas=8.63,  bhtb_las=0.45),
     "i": dict(int_uas=55.08, int_las=49.36, bhtb_uas=8.63,  bhtb_las=0.45),
+    "j": dict(int_uas=0.0,   int_las=0.0,   bhtb_uas=0.0,   bhtb_las=0.0),  # not yet run
 }
 
 
@@ -59,7 +60,7 @@ def evaluate(encoder, parser, vocab, sents, device):
 
 def main():
     ap = argparse.ArgumentParser(description="Re-evaluate saved checkpoints with fixed encoder")
-    ap.add_argument("--system", choices=["g", "h", "i"], required=True)
+    ap.add_argument("--system", choices=["g", "h", "i", "j"], required=True)
     ap.add_argument("--device", default="cuda")
     args = ap.parse_args()
 

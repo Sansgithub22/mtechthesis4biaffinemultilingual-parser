@@ -30,4 +30,8 @@ echo "--- System I ---"
 python3 re_eval.py --system i --device cpu
 
 echo ""
+echo "--- System J ---"
+python3 re_eval.py --system j --device cpu
+
+echo ""
 echo "===== Re-evaluation done: $(date) ====="
