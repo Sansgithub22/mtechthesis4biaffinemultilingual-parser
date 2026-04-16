@@ -365,7 +365,7 @@ def main():
     print(f"  Discriminator params: {sum(p.numel() for p in discriminator.parameters()):,}")
 
     # ── Warm-start ────────────────────────────────────────────────────────────
-    hindi_ckpt = CHECKPT_DIR / "trankit_hindi/trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
+    hindi_ckpt = CHECKPT_DIR / "trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
     print("\n[4] Warm-starting from Hindi checkpoint …")
     warmstart_hindi_adapter(encoder, hindi_ckpt)
     warmstart_biaffine_from_hindi(parser_bho, parser_hi, hindi_ckpt)

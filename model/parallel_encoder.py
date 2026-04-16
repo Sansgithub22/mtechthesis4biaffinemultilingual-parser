@@ -127,18 +127,18 @@ class ParallelEncoder(nn.Module):
         with torch.no_grad():
             outputs = self.xlmr(input_ids=input_ids,
                                 attention_mask=attention_mask)
-        # Transfer hidden states to the adapter's device (mps/cuda/cpu)
-        hidden = outputs.last_hidden_state.to(adapter_device)  # [1, n_subwords, 768]
+        hidden = outputs.last_hidden_state  # [1, n_subwords, 768] on CPU
 
-        # 3. Language-specific adapter (trainable, on adapter_device)
-        hidden = self.adapters[lang](hidden)
-
-        # 4. Subword → word alignment  (first-subword strategy)
+        # 3. Subword → word alignment BEFORE adapter (matches training-time cache path:
+        #    precompute_xlmr pools to word level, then encode_one applies adapter to
+        #    the word-level tensor).  Applying adapter at subword level would be a
+        #    train/eval mismatch and produce garbage output on unseen data.
         word_ids = encoding.word_ids(batch_index=0)  # list len=n_subwords
         word_hidden = self._first_subword_pool(hidden[0], word_ids, len(words))
-        # word_hidden: [n_words, 768]
+        # word_hidden: [n_words, 768]  (CPU)
 
-        return word_hidden.unsqueeze(0)  # [1, n_words, 768]
+        # 4. Language-specific adapter (trainable) — operates on word-level reps
+        return self.adapters[lang](word_hidden.unsqueeze(0).to(adapter_device))  # [1, n_words, 768]
 
     @staticmethod
     def _first_subword_pool(
