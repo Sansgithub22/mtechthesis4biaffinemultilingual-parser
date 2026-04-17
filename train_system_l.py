@@ -36,10 +36,15 @@ sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
+from patch_trankit_env import patch_trankit_env
+patch_trankit_env()
+
 import argparse
 import shutil
 from pathlib import Path
 from typing import List
+
+import torch
 
 from config import DATA_DIR, CHECKPT_DIR
 from utils.conllu_utils import read_conllu, write_conllu
@@ -86,18 +91,38 @@ def _concat_conllu(paths: List[Path], out: Path):
     return n
 
 
-def _warm_start_from(src_ckpt: Path, dst_dir: Path, category: str):
-    dst_ckpt_dir = dst_dir / "xlm-roberta-base" / category
-    dst_ckpt_dir.mkdir(parents=True, exist_ok=True)
-    dst = dst_ckpt_dir / f"{category}.tagger.mdl"
-    if src_ckpt.exists() and not dst.exists():
-        shutil.copy2(src_ckpt, dst)
-        print(f"      Warm-started from: {src_ckpt}")
-        print(f"      Copied to        : {dst}")
-    elif dst.exists():
-        print(f"      Warm-start checkpoint already present: {dst}")
-    else:
-        print(f"      [WARN] Source checkpoint missing: {src_ckpt}")
+def _inject_warmstart(pipeline, src_mdl: Path, label: str = "teacher") -> int:
+    """Inject Trankit adapter weights AFTER TPipeline construction (see K's docstring)."""
+    if not src_mdl.exists():
+        print(f"      [WARN] {label} checkpoint missing: {src_mdl} — cold init")
+        return 0
+
+    state    = torch.load(str(src_mdl), map_location="cpu")
+    adapters = state["adapters"]
+    epoch    = state.get("epoch", "?")
+
+    emb_sd = pipeline._embedding_layers.state_dict()
+    tag_sd = pipeline._tagger.state_dict()
+
+    copied_emb = copied_tag = skipped = 0
+    for k, v in adapters.items():
+        if k in emb_sd and emb_sd[k].shape == v.shape:
+            emb_sd[k] = v
+            copied_emb += 1
+        elif k in tag_sd and tag_sd[k].shape == v.shape:
+            tag_sd[k] = v
+            copied_tag += 1
+        else:
+            skipped += 1
+
+    pipeline._embedding_layers.load_state_dict(emb_sd)
+    pipeline._tagger.load_state_dict(tag_sd)
+
+    print(f"      Warm-start from {label} (epoch {epoch}):")
+    print(f"        Copied emb-layer tensors : {copied_emb}")
+    print(f"        Copied tagger    tensors : {copied_tag}")
+    print(f"        Skipped (shape mismatch) : {skipped}")
+    return epoch
 
 
 def main():
@@ -159,12 +184,6 @@ def main():
     save_dir = str(SYSTEM_L_SAVE_DIR)
     _ensure_xlmr_cache_symlink(save_dir, lang=SYSTEM_L_CATEGORY)
 
-    if not args.no_warm_start_k:
-        sysk_ckpt = (CHECKPT_DIR / "trankit_bho_sysk"
-                     / "xlm-roberta-base" / "bhojpuri_sysk"
-                     / "bhojpuri_sysk.tagger.mdl")
-        _warm_start_from(sysk_ckpt, SYSTEM_L_SAVE_DIR, SYSTEM_L_CATEGORY)
-
     from trankit import TPipeline
     trainer = TPipeline(training_config={
         "category":           SYSTEM_L_CATEGORY,
@@ -177,6 +196,14 @@ def main():
         "gpu":                args.gpu,
         "embedding":          "xlm-roberta-base",
     })
+
+    # ── Post-init warm-start from System K ────────────────────────────────────
+    if not args.no_warm_start_k:
+        sysk_mdl = (CHECKPT_DIR / "trankit_bho_sysk"
+                    / "xlm-roberta-base" / "bhojpuri_sysk"
+                    / "bhojpuri_sysk.tagger.mdl")
+        print("\n[Step] Injecting System K warm-start weights …")
+        _inject_warmstart(trainer, sysk_mdl, label="System K")
 
     print("Training …")
     trainer.train()

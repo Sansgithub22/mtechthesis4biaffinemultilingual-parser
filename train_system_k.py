@@ -38,10 +38,16 @@ sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
+# Patch Trankit for transformers>=4.40 and multi-root tolerance.
+from patch_trankit_env import patch_trankit_env
+patch_trankit_env()
+
 import argparse
 import shutil
 from pathlib import Path
 from typing import List
+
+import torch
 
 from config import DATA_DIR, CHECKPT_DIR
 from utils.conllu_utils import read_conllu, write_conllu, Sentence
@@ -93,25 +99,48 @@ def _concat_conllu(paths: List[Path], out: Path):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Warm-start: copy System A checkpoint as starting point
+# Warm-start: inject System A's weights into TPipeline AFTER construction
+#
+# Trankit does NOT auto-load pre-existing .tagger.mdl on TPipeline init — it
+# builds a fresh posdep model. So copying the Hindi checkpoint into save_dir
+# before init is a no-op (or worse, triggers label-head shape clashes).
+#
+# Instead: construct TPipeline normally (builds model with Bhojpuri/UD vocab),
+# then copy over every tensor from Hindi whose shape matches. Mismatched
+# tensors (e.g. label head with different n_rels) are skipped — these are
+# re-learned during training. Mirrors System F's _inject_hindi_warmstart().
 # ─────────────────────────────────────────────────────────────────────────────
-def _warm_start_from_sysa(sysa_dir: Path, sysk_dir: Path, category: str):
-    """
-    Copy System A's Hindi checkpoint into the System K save directory so that
-    Trankit loads it on init. Adapters are retained (same architecture), and
-    training continues on the new (HDTB + silver Bho) corpus.
-    """
-    src = sysa_dir / "xlm-roberta-base/hindi/hindi.tagger.mdl"
-    dst_dir = sysk_dir / "xlm-roberta-base" / category
-    dst_dir.mkdir(parents=True, exist_ok=True)
-    dst = dst_dir / f"{category}.tagger.mdl"
-    if src.exists() and not dst.exists():
-        shutil.copy2(src, dst)
-        print(f"      Warm-started from System A: {dst}")
-    elif dst.exists():
-        print(f"      Warm-start checkpoint already present: {dst}")
-    else:
-        print(f"      [WARN] No System A checkpoint to warm-start from: {src}")
+def _inject_sysa_warmstart(pipeline, sysa_mdl_path: Path) -> int:
+    if not sysa_mdl_path.exists():
+        print(f"      [WARN] System A checkpoint missing: {sysa_mdl_path} — cold init")
+        return 0
+
+    state    = torch.load(str(sysa_mdl_path), map_location="cpu")
+    adapters = state["adapters"]
+    epoch    = state.get("epoch", "?")
+
+    emb_sd = pipeline._embedding_layers.state_dict()
+    tag_sd = pipeline._tagger.state_dict()
+
+    copied_emb = copied_tag = skipped = 0
+    for k, v in adapters.items():
+        if k in emb_sd and emb_sd[k].shape == v.shape:
+            emb_sd[k] = v
+            copied_emb += 1
+        elif k in tag_sd and tag_sd[k].shape == v.shape:
+            tag_sd[k] = v
+            copied_tag += 1
+        else:
+            skipped += 1
+
+    pipeline._embedding_layers.load_state_dict(emb_sd)
+    pipeline._tagger.load_state_dict(tag_sd)
+
+    print(f"      Warm-start from System A (epoch {epoch}):")
+    print(f"        Copied emb-layer tensors : {copied_emb}")
+    print(f"        Copied tagger    tensors : {copied_tag}")
+    print(f"        Skipped (shape mismatch) : {skipped}")
+    return epoch
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -179,11 +208,6 @@ def main():
     save_dir = str(SYSTEM_K_SAVE_DIR)
     _ensure_xlmr_cache_symlink(save_dir, lang=SYSTEM_K_CATEGORY)
 
-    if args.warm_start_sysa:
-        _warm_start_from_sysa(CHECKPT_DIR / "trankit_hindi",
-                              SYSTEM_K_SAVE_DIR,
-                              SYSTEM_K_CATEGORY)
-
     # ── Trankit training ──────────────────────────────────────────────────────
     from trankit import TPipeline
 
@@ -198,6 +222,12 @@ def main():
         "gpu":                args.gpu,
         "embedding":          "xlm-roberta-base",
     })
+
+    # ── Post-init warm-start (copy matching tensors from System A) ────────────
+    if args.warm_start_sysa:
+        sysa_mdl = CHECKPT_DIR / "trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
+        print("\n[Step] Injecting System A warm-start weights …")
+        _inject_sysa_warmstart(trainer, sysa_mdl)
 
     print("Training …")
     trainer.train()
