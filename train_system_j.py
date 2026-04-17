@@ -294,6 +294,8 @@ def main():
     ap.add_argument("--patience",         type=int,   default=10)
     ap.add_argument("--warmup_epochs",    type=int,   default=2,
                     help="Delay KL + contrastive losses by N epochs")
+    ap.add_argument("--filter_single_root", action="store_true", default=False,
+                    help="Keep only single-root sentences (default: off = use all 30K)")
     ap.add_argument("--dev_ratio",        type=float, default=0.1)
     ap.add_argument("--test_ratio",       type=float, default=0.1,
                     help="Fraction of data to use as internal test set")
@@ -336,8 +338,12 @@ def main():
     print(f"  Parallel pairs : {len(hi_sents):,}")
     print(f"  BHTB test      : {len(test_sents):,}")
 
-    good_idx  = filter_single_root(bho_sents)
-    print(f"  Single-root (well-formed): {len(good_idx):,} / {len(bho_sents):,}")
+    if args.filter_single_root:
+        good_idx = filter_single_root(bho_sents)
+        print(f"  Single-root (well-formed): {len(good_idx):,} / {len(bho_sents):,}  [--filter_single_root]")
+    else:
+        good_idx = list(range(len(bho_sents)))
+        print(f"  Using all sentences (unfiltered): {len(good_idx):,}  [default: Comp 1 regime]")
 
     n_total   = len(good_idx)
     n_test    = max(1, int(n_total * args.test_ratio))
