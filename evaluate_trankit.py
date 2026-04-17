@@ -196,9 +196,15 @@ def main():
                     help="Skip System D (run A/B/C only)")
     ap.add_argument("--skip_f", action="store_true", default=False,
                     help="Skip System F (professor's matched data)")
+    ap.add_argument("--include_k", action="store_true", default=False,
+                    help="Include System K (UD-Bridge via silver self-training)")
+    ap.add_argument("--include_l", action="store_true", default=False,
+                    help="Include System L (iterative self-training + agreement filter)")
     args = ap.parse_args()
 
     sysf_train = Path(__file__).parent / "data_files/sysf/bho_sysf_train.conllu"
+    sysk_train = Path(__file__).parent / "data_files/sysk/sysk_train.conllu"
+    sysl_train = Path(__file__).parent / "data_files/sysl/sysl_train.conllu"
     bhtb_test  = DATA_DIR / "bhojpuri/bho_bhtb-ud-test.conllu"
     if not bhtb_test.exists():
         print("Bhojpuri test data missing. Run: python3 data/download_ud_data.py")
@@ -281,12 +287,42 @@ def main():
         )
     results["F_hq_finetune"] = (uas_f, las_f)
 
+    # ── System K: UD-Bridge via silver self-training ──────────────────────────
+    uas_k = las_k = 0.0
+    per_rel_k: Dict = {}
+    if args.include_k:
+        uas_k, las_k, per_rel_k = eval_system(
+            lang         = "bhojpuri_sysk",
+            save_dir     = str(CHECKPT_DIR / "trankit_bho_sysk"),
+            train_conllu = sysk_train,
+            test_sents   = test_sents,
+            gpu          = args.gpu,
+            label        = "K: UD-Bridge (silver self-training)",
+        )
+    results["K_ud_bridge"] = (uas_k, las_k)
+
+    # ── System L: iterative self-training + agreement filter ──────────────────
+    uas_l = las_l = 0.0
+    per_rel_l: Dict = {}
+    if args.include_l:
+        uas_l, las_l, per_rel_l = eval_system(
+            lang         = "bhojpuri_sysl",
+            save_dir     = str(CHECKPT_DIR / "trankit_bho_sysl"),
+            train_conllu = sysl_train,
+            test_sents   = test_sents,
+            gpu          = args.gpu,
+            label        = "L: Iterative self-training + agreement filter",
+        )
+    results["L_iter_agree"] = (uas_l, las_l)
+
     # ── Per-relation breakdown for best system ────────────────────────────────
     all_results = {"A": (las_a, per_rel_a, "A (zero-shot)"),
                    "B": (las_b, per_rel_b, "B (projection)"),
                    "C": (las_c, per_rel_c, "C (filtered)"),
                    "D": (las_d, per_rel_d, "D (warm-start+selective)"),
-                   "F": (las_f, per_rel_f, "F (high-quality fine-tuning)")}
+                   "F": (las_f, per_rel_f, "F (high-quality fine-tuning)"),
+                   "K": (las_k, per_rel_k, "K (UD-Bridge silver)"),
+                   "L": (las_l, per_rel_l, "L (iter + agreement)")}
     best_key   = max(all_results, key=lambda k: all_results[k][0])
     best_las, best_rel, best_label = all_results[best_key]
 
@@ -307,6 +343,10 @@ def main():
         print(f"  {'[D] Two-stage warm-start + selective proj.':<48} {uas_d*100:>6.2f}% {las_d*100:>6.2f}%")
     if not args.skip_f:
         print(f"  {'[F] High-quality fine-tuning (prof. data)':<48} {uas_f*100:>6.2f}% {las_f*100:>6.2f}%  ← NOVEL")
+    if args.include_k:
+        print(f"  {'[K] UD-Bridge (silver self-training)':<48} {uas_k*100:>6.2f}% {las_k*100:>6.2f}%  ← COMP 2")
+    if args.include_l:
+        print(f"  {'[L] Iter + agreement filter':<48} {uas_l*100:>6.2f}% {las_l*100:>6.2f}%  ← COMP 2 (fallback)")
     print(f"  {'─'*64}")
 
     print(f"\n  Gains over zero-shot baseline (System A):")
@@ -314,6 +354,12 @@ def main():
         print(f"    D vs A: ΔUAS = {(uas_d - uas_a)*100:+.2f}%   ΔLAS = {(las_d - las_a)*100:+.2f}%")
     if not args.skip_f:
         print(f"    F vs A: ΔUAS = {(uas_f - uas_a)*100:+.2f}%   ΔLAS = {(las_f - las_a)*100:+.2f}%  ← target: positive")
+    if args.include_k:
+        print(f"    K vs A: ΔUAS = {(uas_k - uas_a)*100:+.2f}%   ΔLAS = {(las_k - las_a)*100:+.2f}%  ← Comp 2 goal: positive")
+    if args.include_l:
+        print(f"    L vs A: ΔUAS = {(uas_l - uas_a)*100:+.2f}%   ΔLAS = {(las_l - las_a)*100:+.2f}%  ← Comp 2 fallback")
+    if args.include_k and args.include_l:
+        print(f"    L vs K: ΔUAS = {(uas_l - uas_k)*100:+.2f}%   ΔLAS = {(las_l - las_k)*100:+.2f}%  (iteration gain)")
     print(f"\n  Baseline deltas:")
     print(f"    B vs A (projection over zero-shot):        ΔLAS = {(las_b - las_a)*100:+.2f}%")
     print(f"    C vs B (coverage filter over projection):  ΔLAS = {(las_c - las_b)*100:+.2f}%")
@@ -325,6 +371,10 @@ def main():
         all_uas.append(uas_d); all_las.append(las_d)
     if not args.skip_f:
         all_uas.append(uas_f); all_las.append(las_f)
+    if args.include_k:
+        all_uas.append(uas_k); all_las.append(las_k)
+    if args.include_l:
+        all_uas.append(uas_l); all_las.append(las_l)
     best_uas_val = max(all_uas)
     best_las_val = max(all_las)
     target_met   = best_las_val * 100 >= 35.0
