@@ -104,21 +104,27 @@ def _write_sentences(sentences: list, path: Path):
                 f.write("\n")
 
 
-def build_splits(dev_ratio: float = 0.1, test_ratio: float = 0.1):
+def build_splits(dev_ratio: float = 0.1, test_ratio: float = 0.1,
+                 filter_single_root_flag: bool = False):
     """
     Split bhojpuri_matched_transferred.conllu into train/dev/test (80/10/10).
-    Only single-root sentences are kept (multi-root = broken annotation transfer).
     Sequential split to keep train sentences domain-consistent.
-    Always rebuilds to ensure single-root filtering is applied.
+    If filter_single_root_flag is True, drop multi-root sentences first
+    (kept for ablation; the full 30K unfiltered run is required to reproduce
+    the Competition 1 win of G/H/I/J over F).
     """
     from utils.conllu_utils import read_conllu, write_conllu, filter_single_root
 
     print(f"  Reading {PROF_BHO} …")
     all_sents = read_conllu(PROF_BHO)
-    good_idx = filter_single_root(all_sents)
-    sents = [all_sents[i] for i in good_idx]
-    print(f"  Single-root sentences: {len(sents):,} / {len(all_sents):,} "
-          f"({100*len(sents)/len(all_sents):.0f}%)")
+    if filter_single_root_flag:
+        good_idx = filter_single_root(all_sents)
+        sents = [all_sents[i] for i in good_idx]
+        print(f"  Single-root sentences: {len(sents):,} / {len(all_sents):,} "
+              f"({100*len(sents)/len(all_sents):.0f}%)  [--filter_single_root]")
+    else:
+        sents = all_sents
+        print(f"  All sentences (unfiltered): {len(sents):,}  [default: Comp 1 regime]")
 
     total = len(sents)
     n_test  = max(1, int(total * test_ratio))
@@ -213,6 +219,8 @@ def main():
                     help="Fraction of professor's data to use as dev set (default: 0.1)")
     ap.add_argument("--test_ratio", type=float, default=0.1,
                     help="Fraction of professor's data to use as internal test set (default: 0.1)")
+    ap.add_argument("--filter_single_root", action="store_true", default=False,
+                    help="Keep only single-root sentences (default: off = use all 30K)")
     args = ap.parse_args()
 
     hindi_mdl = CHECKPT_DIR / "trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl"
@@ -241,7 +249,8 @@ def main():
 
     # ── Step 1: Build train/dev/test split from professor's data ─────────────
     print("\n[Step 1] Building train/dev/test split (80/10/10) …")
-    build_splits(dev_ratio=args.dev_ratio, test_ratio=args.test_ratio)
+    build_splits(dev_ratio=args.dev_ratio, test_ratio=args.test_ratio,
+                 filter_single_root_flag=args.filter_single_root)
 
     # ── Step 2: Initialise Trankit TPipeline on Bhojpuri data ─────────────────
     # Use the 10% dev split for model selection — BHTB is never seen during

@@ -236,6 +236,8 @@ def main():
     ap.add_argument("--lr",           type=float, default=5e-5)
     ap.add_argument("--patience",     type=int,   default=7,
                     help="Early stopping patience on dev LAS")
+    ap.add_argument("--filter_single_root", action="store_true", default=False,
+                    help="Keep only single-root sentences (default: off = use all 30K)")
     ap.add_argument("--dev_ratio",    type=float, default=0.1,
                     help="Fraction of data to use as dev set")
     ap.add_argument("--test_ratio",   type=float, default=0.1,
@@ -275,10 +277,14 @@ def main():
     test_sents = read_conllu(BHTB_TEST)
     print(f"  BHTB test      : {len(test_sents):,} sentences")
 
-    # Filter to well-formed single-root Bhojpuri sentences
+    # Optional single-root filter — default OFF (Comp 1 was won on full 30K)
     from utils.conllu_utils import filter_single_root
-    good_idx = filter_single_root(bho_sents)
-    print(f"  Single-root (well-formed): {len(good_idx):,} / {len(bho_sents):,}")
+    if args.filter_single_root:
+        good_idx = filter_single_root(bho_sents)
+        print(f"  Single-root (well-formed): {len(good_idx):,} / {len(bho_sents):,}  [--filter_single_root]")
+    else:
+        good_idx = list(range(len(bho_sents)))
+        print(f"  Using all sentences (unfiltered): {len(good_idx):,}  [default: Comp 1 regime]")
 
     # Train/dev/test split (80/10/10) on filtered data
     n_total = len(good_idx)
