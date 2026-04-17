@@ -35,6 +35,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
+# Patch Trankit for transformers>=4.40 and multi-root tolerance.
+from patch_trankit_env import patch_trankit_env
+patch_trankit_env()
+
 import argparse
 import shutil
 from pathlib import Path
