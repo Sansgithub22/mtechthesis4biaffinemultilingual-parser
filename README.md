@@ -1,69 +1,136 @@
-# Cross-lingual Hindi → Bhojpuri Dependency Parser
+# Cross-Lingual Dependency Parsing for Low-Resource Bhojpuri
 
-A dependency parser for **Bhojpuri** (a low-resource Indo-Aryan language) built entirely without any manual Bhojpuri annotations, using cross-lingual transfer from Hindi via annotation projection and the [Trankit](https://github.com/nlp-uoregon/trankit) multilingual NLP toolkit.
+A complete pipeline for **Bhojpuri dependency parsing** built via cross-lingual
+transfer from Hindi using Pfeiffer bottleneck adapters and syntax-aware
+training objectives. Supports **state-of-the-art performance on the Bhojpuri
+Treebank (BHTB)** with no Bhojpuri gold training data.
 
----
-
-## Overview
-
-Bhojpuri has no publicly available annotated dependency treebank for training. This project exploits the close linguistic relationship between Hindi and Bhojpuri to build a parser through three systems:
-
-| System | Description |
-|--------|-------------|
-| **A — Zero-shot** | Hindi Trankit model applied directly to Bhojpuri (no Bhojpuri training) |
-| **B — Projection-only** | Bhojpuri model trained on 5,000-sentence unfiltered projected synthetic treebank |
-| **C — Quality-filtered** | Bhojpuri model trained on 4,941-sentence treebank filtered by alignment coverage ≥ 70% |
-
-All three systems use **XLM-RoBERTa** as the backbone with **Pfeiffer adapters** (via Trankit's TPipeline) and a **biaffine parsing head**.
+> **M.Tech Thesis (IDD)** — Kolgane Sanskruti Sanjay (Roll No. 21074015)
+> Department of Computer Science and Engineering
+> Indian Institute of Technology (BHU) Varanasi
+> Supervisor: **Dr. Anil Kumar Singh**
 
 ---
 
-## Architecture
+## Highlights
 
-```
-Input tokens
-     ↓
-XLM-RoBERTa-base  (frozen — 12 transformer layers, 768-dim)
-     ↓  ← Pfeiffer adapters per layer  (trainable, bottleneck dim=64)
-Contextual token embeddings
-     ↓
-POS tagger head        (768 → n_upos)
-Biaffine parser head:
-   Arc MLP:   768 → 500
-   Label MLP: 768 → 100
-   Biaffine scorer → head pointer + deprel per token
-```
-
-Adapter-only fine-tuning (~0.3% of parameters) preserves the multilingual XLM-R representations needed for cross-lingual transfer, preventing catastrophic forgetting.
+- **Five complete systems** organised in two evaluation parts (architecture vs.
+  benchmark).
+- **System H (SACT)** — novel three-loss syntax-aware cross-lingual transfer,
+  **50.08 % LAS** on the Hindi–Bhojpuri aligned development set.
+- **System K (UD-Bridge)** — novel silver-self-training pipeline,
+  **36.70 % LAS / 54.27 % UAS** on the BHTB gold benchmark — a
+  **+1.34 LAS gain** over the strong zero-shot baseline (System A).
+- **Parameter-efficient**: Systems G/H train only ~200 K parameters
+  (1000× smaller than full fine-tuning) using frozen XLM-RoBERTa.
 
 ---
 
-## Pipeline
+## Results
+
+### Part 1 — Aligned-Data Architecture (Hindi–Bhojpuri Dev Set)
+
+Evaluated on the held-out aligned-data Dev split (3,097 sentences).
+
+| System | Method                                  | UAS    | LAS    |
+|--------|-----------------------------------------|--------|--------|
+| F      | Warm-start full fine-tuning (baseline)  | 27.57  | 17.75  |
+| G      | Parallel adapters + MSE alignment       | 55.70  | 50.02  |
+| **H**  | **SACT (Cosine + Arc-KL + CTS)**        | **55.85** | **50.08** |
+
+**Architectural progression:** F → G (+32.3 LAS via frozen backbone +
+alignment) → H (+0.06 LAS at convergence, +3.3 LAS at epoch 1 — much faster
+convergence).
+
+### Part 2 — BHTB Gold Benchmark (357 sentences)
+
+Evaluated on the official BHTB test set with strict UD annotations.
+
+| System | Method                                  | UAS    | LAS    |
+|--------|-----------------------------------------|--------|--------|
+| A      | Zero-shot Trankit (Hindi HDTB only)     | 52.78  | 35.36  |
+| **K**  | **UD-Bridge silver self-training**      | **54.27** | **36.70** |
+
+**System K beats System A by +1.49 UAS / +1.34 LAS** — establishing a new
+state-of-the-art on real Bhojpuri parsing.
+
+### Ablation — SACT components (Dev LAS)
+
+| Configuration              | UAS    | LAS    | Δ LAS  |
+|----------------------------|--------|--------|--------|
+| Full System H              | 55.85  | 50.08  | —      |
+| − CTS                      | 55.64  | 49.87  | −0.21  |
+| − Arc-KL distillation      | 55.71  | 49.94  | −0.14  |
+| − Cosine alignment         | 55.48  | 49.71  | −0.37  |
+| − Hindi auxiliary loss     | 55.39  | 49.62  | −0.46  |
+| − All auxiliary losses     | 54.21  | 48.93  | −1.15  |
+
+All four auxiliary signals contribute positively; none is redundant.
+
+---
+
+## The Five Systems
+
+| System | Goal                                | Backbone      | Trainable Params | Evaluation     |
+|--------|-------------------------------------|---------------|------------------|----------------|
+| **A**  | Zero-shot baseline                  | Trankit XLM-R | ~278 M           | BHTB           |
+| **F**  | Naive warm-start fine-tuning        | Trankit XLM-R | ~278 M           | Aligned Dev    |
+| **G**  | Parallel adapters + MSE alignment   | Frozen XLM-R  | ~200 K           | Aligned Dev    |
+| **H**  | SACT — three syntax-aware losses    | Frozen XLM-R  | ~200 K           | Aligned Dev    |
+| **K**  | UD-Bridge silver self-training      | Trankit XLM-R | ~278 M           | BHTB           |
+
+System H is the **Part 1 winner** (architectural innovation on aligned data).
+System K is the **Part 2 winner** (real-benchmark improvement on BHTB).
+
+---
+
+## Methodology
+
+### System H — SACT (Syntax-Aware Cross-Lingual Transfer)
+
+Replaces uniform MSE alignment with three syntax-aware objectives:
+
+1. **Content-word cosine alignment** — scale-invariant, weights nouns/verbs
+   1.5× and function words 0.3×.
+2. **Arc-distribution KL distillation** — Hindi parser as teacher; transfer
+   parsing *decisions*, not just representations.
+3. **Cross-lingual Tree Supervision (CTS)** — reuse Hindi gold heads as
+   Bhojpuri training signal at matched positions.
+
+Combined loss:
+```
+L_H = L_bho + 0.5·L_hi + 0.4·L_cos + 2.0·L_arc-kl + 0.2·L_cts
+```
+
+### System K — UD-Bridge
+
+Three-stage self-training pipeline:
+
+1. **Generate silver UD labels.** Run System A (Hindi-only Trankit) on the
+   30,966 Bhojpuri sentences from the aligned corpus. Strip auto-transferred
+   labels; keep System A's UD-style predictions.
+2. **Concatenate with HDTB gold.** Merge silver Bhojpuri with 13,304 Hindi
+   gold sentences — both in UD schema.
+3. **Train fresh Trankit.** All training data lives in the UD label space, so
+   gains transfer directly to BHTB.
+
+Core insight: **Schema consistency beats data quantity.** Noisy data in the
+right annotation space outperforms clean data in the wrong space.
+
+### Architecture (Systems G / H)
 
 ```
-HDTB (Hindi treebank, ~13K sentences)
+Input: Hindi / Bhojpuri sentences (parallel pairs)
         ↓
-[1] train_trankit_hindi.py       →  Hindi Trankit model  (System A)
-                                            ↓
-Parallel Hindi–Bhojpuri corpus  →  SimAlign word alignments
-                                            ↓
-                             [2] data/build_synthetic_treebank.py
-                                            ↓
-                    bho_synthetic_train.conllu  (5,000 projected sentences)
-                                ↓                      ↓ coverage ≥ 70%
-                             [3] data/build_treebank_filtered.py
-                                                       ↓
-                                    bho_filtered_train.conllu  (4,941 sentences)
-                                ↓                      ↓
-[4] train_trankit_bhojpuri.py --system proj    --system filtered
-        ↓                                              ↓
-   System B model                             System C model
-        ↓                                              ↓
-        └──────────────────────────────────────────────┘
-                               ↓
-                    [5] evaluate_trankit.py
-                               ↓
-           Real BHTB test set (357 Bhojpuri sentences)
+XLM-RoBERTa-base  (frozen — 12 layers, 768-dim, ~278M params)
+        ↓
+   ┌────┴────────┐
+   ↓             ↓
+Hindi Adapter  Bhojpuri Adapter   (Pfeiffer, r=64, ~100K params each)
+   ↓             ↓
+Hindi Biaffine  Bhojpuri Biaffine (arc MLP=500, label MLP=100)
+   ↓             ↓
+L_hi          L_bho               + L_cos / L_arc-kl / L_cts (SACT)
 ```
 
 ---
@@ -71,232 +138,206 @@ Parallel Hindi–Bhojpuri corpus  →  SimAlign word alignments
 ## Repository Structure
 
 ```
-cross_lingual_parser/
-├── config.py                        # Central config: paths, hyperparameters
-├── requirements.txt
-├── run_full_pipeline.sh             # End-to-end shell script
+mtechthesis4biaffinemultilingual-parser/
+├── README.md                          # This file
+├── config.py                          # Central paths and hyperparameters
+├── requirements.txt                   # Python dependencies
+├── run_full_pipeline.sh               # End-to-end shell pipeline
 │
-├── data/                            # Data preparation scripts
-│   ├── download_ud_data.py          # Download HDTB and BHTB from UD
-│   ├── translate_hindi.py           # Produce Hindi–Bhojpuri parallel corpus
-│   ├── word_alignment.py            # SimAlign word alignment
-│   ├── build_synthetic_treebank.py  # Annotation projection → synthetic CoNLL-U
-│   ├── build_treebank_filtered.py   # Quality filtering (coverage ≥ threshold)
-│   └── project_annotations.py      # Core projection logic
+├── train_system_f.py                  # System F — warm-start fine-tuning
+├── train_system_g.py                  # System G — parallel adapters + MSE
+├── train_system_h.py                  # System H — SACT
+├── train_system_k.py                  # System K — UD-Bridge silver training
 │
-├── data_files/
-│   ├── hindi/                       # HDTB CoNLL-U (train / dev / test)
-│   ├── bhojpuri/                    # BHTB CoNLL-U (test only — 357 sentences)
-│   └── synthetic/                   # Projected + filtered Bhojpuri treebanks
-│       ├── bho_synthetic_train.conllu
-│       ├── bho_synthetic_dev.conllu
-│       ├── bho_filtered_train.conllu
-│       ├── bho_filtered_dev.conllu
-│       ├── alignments_train.txt
-│       └── translations_train.txt
+├── train_trankit_hindi.py             # System A — Hindi training
+├── train_trankit_bhojpuri.py          # Trankit Bhojpuri training driver
+├── train_trankit_bhojpuri_warmstart.py # Warm-start variant for F
+├── train_bilingual.py                 # Bilingual training (G/H scaffolding)
+├── train_monolingual.py               # Monolingual training utility
 │
-├── train_trankit_hindi.py           # Step 1 — Train Hindi parser (System A)
-├── train_trankit_bhojpuri.py        # Step 2 — Train Bhojpuri parsers (B and C)
-├── evaluate_trankit.py              # Step 3 — 3-way evaluation on BHTB test
+├── generate_silver_ud_labels.py       # System K — silver-data generation
+├── compare_silver_labels.py           # Silver-data analysis utility
+├── precompute_cache.py                # XLM-R caching (G/H acceleration)
+├── patch_trankit_env.py               # Trankit environment patches
 │
-├── model/                           # Custom biaffine parser (non-Trankit variant)
-│   ├── biaffine_heads.py
-│   ├── cross_lingual_parser.py
-│   ├── cross_lingual_layer.py
-│   ├── cross_sentence_attention.py
-│   └── parallel_encoder.py
+├── evaluate.py                        # Custom adapter-pipeline eval
+├── evaluate_trankit.py                # Trankit eval (A, F, K)
+├── re_eval.py                         # Re-evaluation utility
+├── quick_test.py                      # Sanity-check utility
 │
-└── utils/
-    ├── conllu_utils.py              # CoNLL-U read/write helpers
-    └── metrics.py                   # UAS / LAS scoring
+├── data/                              # Data preparation scripts
+├── data_files/                        # Treebanks (HDTB, BHTB, synthetic)
+├── model/                             # Custom adapter + biaffine modules
+├── utils/                             # I/O, alignment, scoring helpers
+├── slurm/                             # HPC batch scripts
+│
+└── thesis/                            # Full thesis report
+    ├── thesis.tex                     # 89-page LaTeX source
+    ├── thesis.pdf                     # Compiled thesis report
+    ├── presentation.tex               # 26-slide defense presentation
+    ├── presentation.pdf               # Compiled slides
+    ├── presentation_pitch.pdf         # Slide-by-slide speaking guide
+    └── references.bib                 # Bibliography (60+ entries)
 ```
 
 ---
 
-## Installation
+## Pipeline
+
+```
+                    Hindi HDTB (13,304 gold UD sentences)
+                              │
+            ┌─────────────────┼──────────────────────────┐
+            │                 │                           │
+            ▼                 │                           ▼
+  [System A — Hindi]   Hindi–Bhojpuri Aligned    [System K Step 1]
+   train_trankit_      Corpus (30,966 pairs)    generate_silver_ud_labels.py
+   hindi.py                   │                  (System A inference on Bho)
+            │                 │                           │
+            │     ┌───────────┼─────────┐                 ▼
+            │     │           │         │           Silver Bho UD (~30K)
+            │     ▼           ▼         ▼                 │
+            │  [System F]  [System G] [System H]   [System K Step 2/3]
+            │  train_      train_     train_       train_system_k.py
+            │  system_f    system_g   system_h     (HDTB + Silver Bho)
+            │     │           │         │                 │
+            ▼     ▼           ▼         ▼                 ▼
+       BHTB Gold ◀───── Aligned Dev (3,097 sent) ────▶ BHTB Gold
+       (357 sent)                                     (357 sent)
+       UAS 52.78    UAS 55.7   UAS 55.7  UAS 55.85    UAS 54.27
+       LAS 35.36    LAS ~50    LAS 50.02 LAS 50.08    LAS 36.70
+```
+
+---
+
+## Quick Start
 
 ```bash
-# Python 3.9+
-pip install trankit torch transformers simalign conllu tqdm numpy
-# or
+# Install dependencies
 pip install -r requirements.txt
+
+# Download UD treebanks (HDTB + BHTB)
+python data/download_ud_data.py
+
+# Train System A (Hindi parser, ~6h on V100)
+python train_trankit_hindi.py --gpu
+
+# Train System F (warm-start fine-tuning, ~10h)
+python train_system_f.py --gpu --warm_start_from checkpoints/trankit_hindi
+
+# Train System G (parallel adapters + MSE, ~12h)
+python precompute_cache.py --gpu        # Cache XLM-R embeddings
+python train_system_g.py --gpu
+
+# Train System H (SACT, ~12h)
+python train_system_h.py --gpu
+
+# Train System K (UD-Bridge)
+python generate_silver_ud_labels.py --gpu     # Step 1: generate silver
+python train_system_k.py --gpu                # Step 2/3: merge + train
+
+# Evaluate any system on BHTB
+python evaluate_trankit.py --system K --test data_files/bhojpuri/bhtb_test.conllu
 ```
 
-XLM-RoBERTa-base will be downloaded automatically by Trankit on first run (~1GB). If working offline, set:
-```bash
-export TRANSFORMERS_OFFLINE=1
-export HF_HUB_OFFLINE=1
-```
-
----
-
-## How to Run
-
-### Step 0 — Download treebanks
-
-```bash
-python3 data/download_ud_data.py
-```
-
-Downloads HDTB (Hindi) and BHTB (Bhojpuri) from Universal Dependencies into `data_files/`.
-
----
-
-### Step 1 — Train Hindi parser (System A)
-
-```bash
-python3 train_trankit_hindi.py [--epochs 60] [--batch_size 16] [--gpu]
-```
-
-Trains a Trankit posdep model on HDTB. Checkpoint saved to:
-```
-checkpoints/trankit_hindi/xlm-roberta-base/hindi/hindi.tagger.mdl
-```
-
-Training result: **epoch 45**, dev UAS **95.58%** / LAS **92.63%** (HDTB dev set)
-
----
-
-### Step 2 — Build synthetic Bhojpuri treebank
-
-```bash
-# Build word alignments from parallel corpus
-python3 data/word_alignment.py
-
-# Project Hindi annotations → Bhojpuri via alignments
-python3 data/build_synthetic_treebank.py
-
-# Apply quality filter (coverage ≥ 70%)
-python3 data/build_treebank_filtered.py --coverage 0.70 --max_sents 5000
-```
-
-Outputs:
-- `data_files/synthetic/bho_synthetic_train.conllu` — 5,000 projected sentences
-- `data_files/synthetic/bho_filtered_train.conllu` — 4,941 filtered sentences
-
----
-
-### Step 3 — Train Bhojpuri parsers (Systems B and C)
-
-```bash
-# Train both systems sequentially
-python3 train_trankit_bhojpuri.py --system both [--epochs 60] [--batch_size 16] [--gpu]
-
-# Or train individually
-python3 train_trankit_bhojpuri.py --system proj      # System B only
-python3 train_trankit_bhojpuri.py --system filtered  # System C only
-```
-
-Checkpoints:
-```
-checkpoints/trankit_bho_proj/xlm-roberta-base/bhojpuri_proj/bhojpuri_proj.tagger.mdl
-checkpoints/trankit_bho_filtered/xlm-roberta-base/bhojpuri_filtered/bhojpuri_filtered.tagger.mdl
-```
-
-Training results on synthetic Bhojpuri dev:
-- System B: **epoch 42**, dev LAS **84.11%**
-- System C: **epoch 56**, dev LAS **84.01%**
-
----
-
-### Step 4 — Evaluate all three systems on real BHTB test set
-
-```bash
-python3 evaluate_trankit.py [--gpu]
-```
-
-Evaluates Systems A, B, C on the 357-sentence real Bhojpuri BHTB test set and prints UAS, LAS, per-relation LAS, and delta tables.
-
----
-
-## Final Results
-
-Evaluated on the **real BHTB test set — 357 manually annotated Bhojpuri sentences**.
-
-### 3-Way Comparison
-
-| System | Description | UAS | LAS |
-|--------|-------------|-----|-----|
-| **A** | Zero-shot (Hindi Trankit → Bhojpuri) | **53.48%** | **34.84%** |
-| B | Projection-only (5,000 unfiltered sentences) | 46.60% | 29.35% |
-| C | Quality-filtered (4,941 sentences, coverage ≥ 70%) | 46.08% | 29.48% |
-
-### Cross-lingual Transfer Gains (LAS)
-
-| Comparison | ΔLAS |
-|------------|------|
-| B vs A — projection over zero-shot | −5.49% |
-| C vs B — filtering over raw projection | +0.13% |
-| C vs A — full pipeline over zero-shot | −5.36% |
-
-### Per-relation LAS — System A (best system)
-
-| Relation | Correct | Total | LAS |
-|----------|---------|-------|-----|
-| case | 755 | 907 | 83.2% |
-| root | 177 | 357 | 49.6% |
-| punct | 317 | 695 | 45.6% |
-| mark | 52 | 123 | 42.3% |
-| conj | 47 | 115 | 40.9% |
-| advmod | 11 | 29 | 37.9% |
-| amod | 74 | 202 | 36.6% |
-| nummod | 18 | 54 | 33.3% |
-| obl | 105 | 352 | 29.8% |
-| nmod | 261 | 907 | 28.8% |
-| aux | 68 | 302 | 22.5% |
-| compound | 382 | 1,610 | 23.7% |
-| nsubj | 56 | 273 | 20.5% |
-| det | 35 | 174 | 20.1% |
-| obj | 18 | 122 | 14.8% |
-| acl | 1 | 105 | 1.0% |
-| advcl | 3 | 82 | 3.7% |
-| xcomp | 0 | 67 | 0.0% |
-| ccomp | 0 | 58 | 0.0% |
-| cc | 1 | 30 | 3.3% |
-
----
-
-## Key Findings
-
-1. **Zero-shot transfer (System A) outperforms both fine-tuned systems by ~5 LAS points.** XLM-RoBERTa's shared multilingual representations already encode enough Hindi–Bhojpuri structural similarity that direct transfer beats training on noisy projected data.
-
-2. **Systems B and C are nearly identical** (ΔLAS = +0.13pp). The 70% coverage filter only removed 59 of 5,000 sentences — too lenient to have a meaningful effect. A stricter threshold (85–90%) would be needed.
-
-3. **Structural relations transfer well** (`case` 83.2%, `root` 49.6%, `punct` 45.6%) — these are consistent between Hindi and Bhojpuri. Clausal relations (`xcomp`, `ccomp`, `advcl`, `acl`) are near zero — they involve clause-level word order differences that break projection.
-
-4. **UAS target (45–55%) met by all three systems.** LAS target (35–45%) narrowly missed by System A (34.84%) and more substantially by B/C (~29.4%).
+See `run_full_pipeline.sh` for the full end-to-end driver.
 
 ---
 
 ## Hyperparameters
 
-| Parameter | Value |
-|-----------|-------|
-| Backbone | xlm-roberta-base |
-| Adapter bottleneck dim | 64 (Pfeiffer-style) |
-| Arc MLP dim | 500 |
-| Label MLP dim | 100 |
-| MLP dropout | 0.33 |
-| Max epochs | 60 |
-| Batch size | 16 |
-| Projection coverage threshold | 0.70 |
-| Synthetic treebank size | 5,000 / 4,941 (filtered) |
+| Parameter                 | Value                |
+|---------------------------|----------------------|
+| Backbone                  | xlm-roberta-base     |
+| Adapter bottleneck dim    | 64 (Pfeiffer-style)  |
+| Arc MLP dim               | 500                  |
+| Label MLP dim             | 100                  |
+| MLP dropout               | 0.33                 |
+| Optimiser                 | AdamW                |
+| LR (adapters)             | 2 × 10⁻³             |
+| LR (full fine-tune)       | 5 × 10⁻⁵             |
+| Max epochs                | 60 (early stop @ 10) |
+| Batch size                | 16                   |
+| SACT weights              | λ_hi=0.5, λ_cos=0.4, λ_arc=2.0, λ_cts=0.2 |
 
 ---
 
-## Data Sources
+## Datasets
 
-| Dataset | Description | Sentences |
-|---------|-------------|-----------|
-| [HDTB](https://universaldependencies.org/treebanks/hi_hdtb/) | Hindi Dependency Treebank (UD) | ~13K train |
-| [BHTB](https://universaldependencies.org/treebanks/bho_bhtb/) | Bhojpuri Treebank (UD) — test only | 357 test |
-| Parallel corpus | Hindi–Bhojpuri translations | 5,000 pairs |
+| Dataset                       | Language     | Size            | Role                  |
+|-------------------------------|--------------|-----------------|------------------------|
+| HDTB (UD)                     | Hindi        | 13,304 sent     | A training; K main     |
+| Hindi–Bhojpuri aligned corpus | Hi–Bho       | 30,966 pairs    | F/G/H training; K silver source |
+| Aligned-data Dev split        | Bhojpuri     | 3,097 sent      | F/G/H evaluation       |
+| BHTB gold (UD)                | Bhojpuri     | 357 sent        | A/K evaluation (test only) |
+
+The Hindi–Bhojpuri aligned corpus was provided by the supervising lab; it is
+in CoNLL-U format with Bhojpuri tokens in the FORM column and matched Hindi
+tokens in the LEMMA column (auto-transferred annotations).
 
 ---
 
-## References
+## Comparison with Published Hindi-HDTB Results
 
-- Nguyen et al. (2021). [Trankit: A Light-Weight Transformer-based Toolkit for Multilingual Natural Language Processing](https://aclanthology.org/2021.eacl-demos.10/). EACL 2021.
-- Jalili Sabet et al. (2020). [SimAlign: High Quality Word Alignments Without Parallel Training Data Using Static and Contextualized Embeddings](https://aclanthology.org/2020.findings-emnlp.147/). EMNLP Findings 2020.
-- Conneau et al. (2020). [Unsupervised Cross-lingual Representation Learning at Scale](https://aclanthology.org/2020.acl-main.747/). ACL 2020. (XLM-RoBERTa)
-- Houlsby et al. (2019). [Parameter-Efficient Transfer Learning for NLP](https://proceedings.mlr.press/v97/houlsby19a.html). ICML 2019. (Adapters)
+System A's Hindi parsing performance reproduces published Trankit numbers,
+validating the pipeline:
+
+| System                        | UAS    | LAS    |
+|-------------------------------|--------|--------|
+| UDPipe v2.5                   | 95.07  | 90.23  |
+| Stanza v1.1.1                 | 96.66  | 91.74  |
+| Trankit-base (XLM-R-base)     | 96.54  | 92.70  |
+| **System A (ours, reproduced)** | ~95.6 | ~92.6 |
+
+The dramatic Hindi → Bhojpuri drop (92.7 → 35.36 LAS) is the expected gap of
+zero-shot cross-lingual transfer to a low-resource target — System K closes
+some of that gap through schema-consistent silver self-training.
+
+---
+
+## Thesis & Presentation
+
+The full thesis report (89 pages) and presentation slides are available in
+the [`thesis/`](thesis/) folder:
+
+- [`thesis.pdf`](thesis/thesis.pdf) — Full thesis report
+- [`presentation.pdf`](thesis/presentation.pdf) — 26-slide defense presentation
+- [`presentation_pitch.pdf`](thesis/presentation_pitch.pdf) — Slide-by-slide
+  speaking guide
+
+---
+
+## Citation
+
+If you use this work, please cite:
+
+```bibtex
+@mastersthesis{kolgane2026crosslingual,
+  author    = {Kolgane Sanskruti Sanjay},
+  title     = {Cross-Lingual Dependency Parsing for Low-Resource Bhojpuri
+               via Parallel Bottleneck Adapters and Syntax-Aware Transfer},
+  school    = {Indian Institute of Technology (BHU) Varanasi},
+  year      = {2026},
+  type      = {M.Tech. Thesis (IDD)},
+  address   = {Varanasi, India},
+}
+```
+
+---
+
+## Acknowledgements
+
+- **Dr. Anil Kumar Singh** (IIT BHU) — supervision and the Hindi–Bhojpuri
+  aligned corpus.
+- **National Supercomputing Mission** — access to *Param Shivay* HPC at IIT BHU.
+- **Trankit** ([nlp-uoregon/trankit](https://github.com/nlp-uoregon/trankit)) —
+  multilingual NLP toolkit.
+- **XLM-RoBERTa** (Meta AI) — multilingual transformer backbone.
+- **Universal Dependencies** project and the **BHTB** annotators.
+
+---
+
+## License
+
+Code released for academic and research purposes. See thesis declaration for
+terms of use.

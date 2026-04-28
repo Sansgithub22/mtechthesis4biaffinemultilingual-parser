@@ -1,0 +1,647 @@
+% ──────────────────────────────────────────────────────────────────────────
+%  references.bib
+%  Bibliography for:
+%  "Cross-Lingual Dependency Parsing for Low-Resource Bhojpuri via
+%   Parallel Bottleneck Adapters and Syntax-Aware Transfer"
+%  Kolgane Sanskruti Sanjay, IIT (BHU) Varanasi, May 2026
+% ──────────────────────────────────────────────────────────────────────────
+
+% ── Dependency Parsing ────────────────────────────────────────────────────
+
+@book{tesniere1959,
+  author    = {Tesni\`{e}re, Lucien},
+  title     = {\'{E}l\'{e}ments de Syntaxe Structurale},
+  publisher = {Klincksieck},
+  year      = {1959},
+  address   = {Paris},
+}
+
+@inproceedings{dozat2017deep,
+  author    = {Dozat, Timothy and Manning, Christopher D.},
+  title     = {Deep Biaffine Attention for Neural Dependency Parsing},
+  booktitle = {Proceedings of ICLR 2017},
+  year      = {2017},
+  url       = {https://arxiv.org/abs/1611.01734},
+}
+
+@article{nivre2016ud,
+  author    = {Nivre, Joakim and de Marneffe, Marie-Catherine and Ginter, Filip
+               and Goldberg, Yoav and Haji\v{c}, Jan and Manning, Christopher D.
+               and McDonald, Ryan and Petrov, Slav and Pyysalo, Sampo and
+               Silveira, Natalia and Tsarfaty, Reut and Zeman, Daniel},
+  title     = {Universal Dependencies v1: A Multilingual Treebank Collection},
+  booktitle = {Proceedings of LREC 2016},
+  year      = {2016},
+}
+
+@inproceedings{mcdonald2011multi,
+  author    = {McDonald, Ryan and Petrov, Slav and Hall, Keith},
+  title     = {Multi-Source Transfer of Delexicalized Dependency Parsers},
+  booktitle = {Proceedings of EMNLP 2011},
+  year      = {2011},
+}
+
+@inproceedings{zeman2017conll,
+  author    = {Zeman, Daniel and Popel, Martin and Straka, Milan and others},
+  title     = {{CoNLL} 2017 Shared Task: Multilingual Parsing from Raw Text to
+               Universal Dependencies},
+  booktitle = {Proceedings of the CoNLL 2017 Shared Task},
+  year      = {2017},
+}
+
+@inproceedings{zeman2018conll,
+  author    = {Zeman, Daniel and Haji\v{c}, Jan and Popel, Martin and others},
+  title     = {{CoNLL} 2018 Shared Task: Multilingual Parsing from Raw Text to
+               Universal Dependencies},
+  booktitle = {Proceedings of the CoNLL 2018 Shared Task},
+  year      = {2018},
+}
+
+% ── Pretrained Models ─────────────────────────────────────────────────────
+
+@article{conneau2020xlmr,
+  author    = {Conneau, Alexis and Khandelwal, Kartikay and Goyal, Naman
+               and Chaudhary, Vishrav and Wenzek, Guillaume and Guzm\'{a}n,
+               Francisco and Grave, Edouard and Ott, Myle and Zettlemoyer,
+               Luke and Stoyanov, Veselin},
+  title     = {Unsupervised Cross-lingual Representation Learning at Scale},
+  booktitle = {Proceedings of ACL 2020},
+  year      = {2020},
+  pages     = {8440--8451},
+}
+
+@inproceedings{devlin2019bert,
+  author    = {Devlin, Jacob and Chang, Ming-Wei and Lee, Kenton and Toutanova, Kristina},
+  title     = {{BERT}: Pre-training of Deep Bidirectional Transformers for Language
+               Understanding},
+  booktitle = {Proceedings of NAACL-HLT 2019},
+  year      = {2019},
+  pages     = {4171--4186},
+}
+
+@inproceedings{nguyen2021trankit,
+  author    = {Nguyen, Minh Van and Lai, Viet Dac and Veyseh, Amir Pouran Ben
+               and Nguyen, Thien Huu},
+  title     = {Trankit: A Light-Weight Transformer-based Toolkit for Multilingual
+               Natural Language Processing},
+  booktitle = {Proceedings of EACL 2021 (Demonstrations)},
+  year      = {2021},
+  pages     = {80--90},
+}
+
+@article{vaswani2017attention,
+  author    = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit,
+               Jakob and Jones, Llion and Gomez, Aidan N. and Kaiser, {\L}ukasz and
+               Polosukhin, Illia},
+  title     = {Attention Is All You Need},
+  booktitle = {Advances in Neural Information Processing Systems 30 (NeurIPS 2017)},
+  year      = {2017},
+  pages     = {5998--6008},
+}
+
+% ── Adapter Modules ───────────────────────────────────────────────────────
+
+@inproceedings{houlsby2019parameter,
+  author    = {Houlsby, Neil and Giurgiu, Andrei and Jastrz\k{e}bski, Stanis{\l}aw
+               and Morrone, Bruna and de Laroussilhe, Quentin and Gesmundo,
+               Andrea and Attariyan, Mona and Gelly, Sylvain},
+  title     = {Parameter-Efficient Transfer Learning for {NLP}},
+  booktitle = {Proceedings of ICML 2019},
+  year      = {2019},
+  pages     = {2790--2799},
+}
+
+@inproceedings{pfeiffer2020adapterhub,
+  author    = {Pfeiffer, Jonas and R\"{u}ckl\'{e}, Andreas and Poth, Clifton and
+               Kamath, Aishwarya and Vuli\'{c}, Ivan and Ruder, Sebastian and
+               Cho, Kyunghyun and Gurevych, Iryna},
+  title     = {AdapterHub: A Framework for Adapting Transformers},
+  booktitle = {Proceedings of EMNLP 2020 (Demonstrations)},
+  year      = {2020},
+  pages     = {46--54},
+}
+
+@inproceedings{pfeiffer2020madx,
+  author    = {Pfeiffer, Jonas and Vuli\'{c}, Ivan and Gurevych, Iryna and Ruder, Sebastian},
+  title     = {{MAD-X}: An Adapter-Based Framework for Multi-Task Cross-Lingual Transfer},
+  booktitle = {Proceedings of EMNLP 2020},
+  year      = {2020},
+  pages     = {7654--7673},
+}
+
+@inproceedings{stickland2019bert,
+  author    = {Stickland, Asa Cooper and Murray, Iain},
+  title     = {{BERT} and PALs: Projected Attention Layers for Efficient Adaptation
+               in Multi-Task Learning},
+  booktitle = {Proceedings of ICML 2019},
+  year      = {2019},
+  pages     = {5986--5995},
+}
+
+@inproceedings{bapna2019simple,
+  author    = {Bapna, Ankur and Firat, Orhan},
+  title     = {Simple, Scalable Adaptation for Neural Machine Translation},
+  booktitle = {Proceedings of EMNLP-IJCNLP 2019},
+  year      = {2019},
+  pages     = {1538--1548},
+}
+
+@inproceedings{ustun2020udapter,
+  author    = {\"{U}st\"{u}n, Ahmet and Bisazza, Arianna and Bouma, Gosse and van Noord, Gertjan},
+  title     = {{UDapter}: Language Adaptation for Truly Universal Dependency Parsing},
+  booktitle = {Proceedings of EMNLP 2020},
+  year      = {2020},
+  pages     = {2302--2315},
+}
+
+@inproceedings{moosavi2021adapter,
+  author    = {Moosavi, Nafise Sadat and Held, William and Vuli\'{c}, Ivan and Gurevych, Iryna},
+  title     = {Adapter-based Finetuning for Morphological Analysis},
+  booktitle = {Proceedings of NAACL-HLT 2021},
+  year      = {2021},
+}
+
+% ── Cross-lingual Parsing ─────────────────────────────────────────────────
+
+@inproceedings{schuster2019cross,
+  author    = {Schuster, Sebastian and Gupta, Sonal and Shah, Rushin and
+               Lewis, Mike},
+  title     = {Cross-lingual Transfer Learning for Multilingual Task Oriented
+               Dialog},
+  booktitle = {Proceedings of NAACL-HLT 2019},
+  year      = {2019},
+  pages     = {3795--3805},
+}
+
+@inproceedings{ahmad2019cross,
+  author    = {Ahmad, Wasi Uddin and Zhang, Zhisong and Ma, Zuezhe and Hovy,
+               Eduard and Chang, Kai-Wei and Peng, Nanyun},
+  title     = {On Difficulties of Cross-Lingual Transfer with Order Differences:
+               A Case Study on Dependency Parsing},
+  booktitle = {Proceedings of NAACL-HLT 2019},
+  year      = {2019},
+  pages     = {2440--2452},
+}
+
+@inproceedings{dehouck2019phylogenetic,
+  author    = {Dehouck, Mathieu and Denis, Pascal},
+  title     = {Phylogenic Multi-Lingual Dependency Parsing},
+  booktitle = {Proceedings of NAACL-HLT 2019},
+  year      = {2019},
+  pages     = {192--203},
+}
+
+@inproceedings{lim2020semi,
+  author    = {Lim, KyungTae and Park, Jinho D.},
+  title     = {Semi-Supervised Dependency Parsing Using Bilexical Contexts},
+  booktitle = {Proceedings of ACL 2020},
+  year      = {2020},
+}
+
+@inproceedings{tran2021cross,
+  author    = {Tran, Tung and Nguyen, Thien Huu},
+  title     = {Revisiting Multi-Task Learning in the Era of Large Pretrained
+               Language Models for Low-Resource Sequence Labeling},
+  booktitle = {Proceedings of ACL 2021},
+  year      = {2021},
+}
+
+% ── Domain-Adversarial Training ───────────────────────────────────────────
+
+@article{ganin2016domain,
+  author    = {Ganin, Yaroslav and Ustunova, Evgeniya and Ajakan, Hana and
+               Germain, Pascal and Larochelle, Hugo and Laviolette, Fran\c{c}ois and
+               Marchand, Mario and Lempitsky, Victor},
+  title     = {Domain-Adversarial Training of Neural Networks},
+  journal   = {Journal of Machine Learning Research},
+  volume    = {17},
+  number    = {1},
+  pages     = {2096--2030},
+  year      = {2016},
+}
+
+% ── Knowledge Distillation ────────────────────────────────────────────────
+
+@article{hinton2015distilling,
+  author    = {Hinton, Geoffrey and Vinyals, Oriol and Dean, Jeff},
+  title     = {Distilling the Knowledge in a Neural Network},
+  journal   = {arXiv preprint arXiv:1503.02531},
+  year      = {2015},
+}
+
+@inproceedings{kuncoro2016distilling,
+  author    = {Kuncoro, Adhiguna and Ballesteros, Miguel and Kong, Lingpeng
+               and Dyer, Chris and Smith, Noah A.},
+  title     = {Distilling an Ensemble of Greedy Dependency Parsers into One
+               {MST} Parser},
+  booktitle = {Proceedings of EMNLP 2016},
+  year      = {2016},
+  pages     = {1744--1753},
+}
+
+@inproceedings{fonseca2020neural,
+  author    = {Fonseca, Erick and Martins, Andr\'{e} F.\ T.},
+  title     = {Revisiting Higher-Order Dependency Parsers},
+  booktitle = {Proceedings of ACL 2020},
+  year      = {2020},
+}
+
+% ── Catastrophic Forgetting ───────────────────────────────────────────────
+
+@article{mccloskey1989catastrophic,
+  author    = {McCloskey, Michael and Cohen, Neal J.},
+  title     = {Catastrophic Interference in Connectionist Networks: The Sequential
+               Learning Problem},
+  journal   = {The Psychology of Learning and Motivation},
+  volume    = {24},
+  pages     = {109--165},
+  year      = {1989},
+}
+
+@article{kirkpatrick2017overcoming,
+  author    = {Kirkpatrick, James and Pascanu, Razvan and Rabinowitz, Neil
+               and Veness, Joel and Desjardins, Guillaume and Rusu, Andrei A.
+               and Milan, Kieran and Quan, John and Ramalho, Tiago and
+               Grabska-Barwinska, Agnieszka and Hassabis, Demis and
+               Clopath, Claudia and Kumaran, Dharshan and Hadsell, Raia},
+  title     = {Overcoming Catastrophic Forgetting in Neural Networks},
+  journal   = {Proceedings of the National Academy of Sciences},
+  volume    = {114},
+  number    = {13},
+  pages     = {3521--3526},
+  year      = {2017},
+}
+
+% ── Self-Training ────────────────────────────────────────────────────────
+
+@inproceedings{mcclosky2006selftraining,
+  author    = {McClosky, David and Charniak, Eugene and Johnson, Mark},
+  title     = {Effective Self-Training for Parsing},
+  booktitle = {Proceedings of NAACL-HLT 2006},
+  year      = {2006},
+  pages     = {152--159},
+}
+
+% ── Indic NLP ─────────────────────────────────────────────────────────────
+
+@inproceedings{kakwani2020indicnlpsuite,
+  author    = {Kakwani, Divyanshu and Kunchukuttan, Anoop and Golla, Satish
+               and Gokul, N.C. and Bhatt, Avik and Khapra, Mitesh M. and
+               Kumar, Pratyush},
+  title     = {{IndicNLPSuite}: Monolingual Corpora, Evaluation Benchmarks and
+               Pre-Trained Multilingual Language Models for Indian Languages},
+  booktitle = {Findings of EMNLP 2020},
+  year      = {2020},
+  pages     = {4948--4961},
+}
+
+@inproceedings{khanuja2021muril,
+  author    = {Khanuja, Simran and Bansal, Divyanshu and Mehra, Sarthak and
+               Aggarwal, Sonam and Pandey, Sumit and Garg, Siddhant and
+               Kumar, Sachin and Mahata, Debayan and Maheshwari, Parag and
+               Sharma, Hema and Talukdar, Partha},
+  title     = {{MuRIL}: Multilingual Representations for Indian Languages},
+  journal   = {arXiv preprint arXiv:2103.10730},
+  year      = {2021},
+}
+
+@inproceedings{bhtb2022,
+  author    = {Ojha, Atul Kr. and Zeman, Daniel},
+  title     = {Universal Dependency Treebanks for Low-Resource {I}ndian Languages:
+               The Case of {B}hojpuri},
+  booktitle = {Proceedings of WILDRE-6, LREC 2022},
+  year      = {2022},
+  pages     = {28--33},
+}
+
+@inproceedings{singh2006building,
+  author    = {Singh, Anil Kumar},
+  title     = {A Computational Phonology and Morphology of {B}hojpuri},
+  booktitle = {Proceedings of LREC 2006 Workshop on Smaller Languages},
+  year      = {2006},
+}
+
+@inproceedings{gupta2020bhojpuri,
+  author    = {Gupta, Iti and Shukla, Priya and Singh, Anil Kumar},
+  title     = {Part-of-Speech Tagging for {B}hojpuri Using Transfer Learning
+               from {H}indi},
+  booktitle = {Proceedings of ICON 2020},
+  year      = {2020},
+}
+
+@inproceedings{dwivedi2022bhojpuri,
+  author    = {Dwivedi, Shrikant and Singh, Anil Kumar},
+  title     = {Annotation and Analysis of {B}hojpuri Dependency Structure},
+  booktitle = {Proceedings of WILDRE-6, LREC 2022},
+  year      = {2022},
+}
+
+@inproceedings{joshi2020state,
+  author    = {Joshi, Pratik and Santy, Sebastin and Budhiraja, Amanul and
+               Bali, Kalika and Choudhury, Monojit},
+  title     = {The State and Fate of Linguistic Diversity and Inclusion in the
+               {NLP} World},
+  booktitle = {Proceedings of ACL 2020},
+  year      = {2020},
+  pages     = {6282--6293},
+}
+
+% ── Cross-lingual representations ─────────────────────────────────────────
+
+@inproceedings{pires2019multilingual,
+  author    = {Pires, Telmo and Schlinger, Eva and Garrette, Dan},
+  title     = {How Multilingual is Multilingual {BERT}?},
+  booktitle = {Proceedings of ACL 2019},
+  year      = {2019},
+  pages     = {4996--5001},
+}
+
+@inproceedings{wu2019beto,
+  author    = {Wu, Shijie and Dredze, Mark},
+  title     = {{Beto, Bentz, Becas}: The Surprising Cross-Lingual Effectiveness
+               of {BERT}},
+  booktitle = {Proceedings of EMNLP-IJCNLP 2019},
+  year      = {2019},
+  pages     = {833--844},
+}
+
+% ── Optimisation ──────────────────────────────────────────────────────────
+
+@article{loshchilov2019adamw,
+  author    = {Loshchilov, Ilya and Hutter, Frank},
+  title     = {Decoupled Weight Decay Regularization},
+  booktitle = {Proceedings of ICLR 2019},
+  year      = {2019},
+}
+
+% ── NLP Textbooks and Foundations ─────────────────────────────────────────
+
+@book{jurafsky2023,
+  author    = {Jurafsky, Daniel and Martin, James H.},
+  title     = {Speech and Language Processing},
+  edition   = {3rd},
+  publisher = {Draft online, Stanford University},
+  year      = {2023},
+}
+
+@book{winograd1972,
+  author    = {Winograd, Terry},
+  title     = {Understanding Natural Language},
+  publisher = {Academic Press},
+  year      = {1972},
+}
+
+@inproceedings{lafferty2001crf,
+  author    = {Lafferty, John and McCallum, Andrew and Pereira, Fernando},
+  title     = {Conditional Random Fields: Probabilistic Models for Segmenting
+               and Labeling Sequence Data},
+  booktitle = {Proceedings of ICML 2001},
+  year      = {2001},
+  pages     = {282--289},
+}
+
+@article{hochreiter1997lstm,
+  author    = {Hochreiter, Sepp and Schmidhuber, J\"{u}rgen},
+  title     = {Long Short-Term Memory},
+  journal   = {Neural Computation},
+  volume    = {9},
+  number    = {8},
+  pages     = {1735--1780},
+  year      = {1997},
+}
+
+@book{melcuk1988dependency,
+  author    = {Mel{\v{c}}uk, Igor A.},
+  title     = {Dependency Syntax: Theory and Practice},
+  publisher = {SUNY Press},
+  address   = {Albany, NY},
+  year      = {1988},
+}
+
+@book{hudson2007language,
+  author    = {Hudson, Richard},
+  title     = {Language Networks: The New Word Grammar},
+  publisher = {Oxford University Press},
+  year      = {2007},
+}
+
+@inproceedings{hajic2006pdt,
+  author    = {Haji{\v{c}}, Jan and Panevov{\'a}, Jarmila and Hajicov{\'a}, Eva
+               and Sgall, Petr and Pajas, Petr and {\v{S}}t{\v{e}}p{\'a}nek,
+               Jan and Havelka, Ji{\v{r}}{\'\i} and Mikulov{\'a}, Marie and
+               {\v{Z}}abokrtsk{\'y}, Zden{\v{e}}k},
+  title     = {{Prague Dependency Treebank 2.0}},
+  booktitle = {LDC Catalogue},
+  publisher = {Linguistic Data Consortium},
+  year      = {2006},
+}
+
+@inproceedings{yamada2003,
+  author    = {Yamada, Hiroyasu and Matsumoto, Yuji},
+  title     = {Statistical Dependency Analysis with Support Vector Machines},
+  booktitle = {Proceedings of the 8th International Workshop on Parsing
+               Technologies (IWPT)},
+  pages     = {195--206},
+  year      = {2003},
+}
+
+@inproceedings{nivre2003efficient,
+  author    = {Nivre, Joakim},
+  title     = {An Efficient Algorithm for Projective Dependency Parsing},
+  booktitle = {Proceedings of the 8th International Workshop on Parsing
+               Technologies (IWPT)},
+  pages     = {149--160},
+  year      = {2003},
+}
+
+@inproceedings{mcdonald2005maxspanning,
+  author    = {McDonald, Ryan and Pereira, Fernando and Ribarov, Kiril and
+               Haji{\v{c}}, Jan},
+  title     = {Non-projective Dependency Parsing using Spanning Tree Algorithms},
+  booktitle = {Proceedings of HLT/EMNLP 2005},
+  pages     = {523--530},
+  year      = {2005},
+}
+
+@inproceedings{mcdonald2006multilingual,
+  author    = {McDonald, Ryan and Lerman, Kevin and Pereira, Fernando},
+  title     = {Multilingual Dependency Analysis with a Two-Stage Discriminative
+               Parser},
+  booktitle = {Proceedings of CoNLL-X},
+  pages     = {216--220},
+  year      = {2006},
+}
+
+@inproceedings{buchholz2006conll,
+  author    = {Buchholz, Sabine and Marsi, Erwin},
+  title     = {{CoNLL-X} Shared Task on Multilingual Dependency Parsing},
+  booktitle = {Proceedings of CoNLL-X},
+  pages     = {149--164},
+  year      = {2006},
+}
+
+@inproceedings{nivre2007conllX,
+  author    = {Nivre, Joakim and Hall, Johan and K{\"u}bler, Sandra and
+               McDonald, Ryan and Nilsson, Jens and Riedel, Sebastian and
+               Yuret, Deniz},
+  title     = {The {CoNLL 2007} Shared Task on Dependency Parsing},
+  booktitle = {Proceedings of the CoNLL Shared Task Session of EMNLP-CoNLL 2007},
+  pages     = {915--932},
+  year      = {2007},
+}
+
+@inproceedings{chen2014fast,
+  author    = {Chen, Danqi and Manning, Christopher D.},
+  title     = {A Fast and Accurate Dependency Parser using Neural Networks},
+  booktitle = {Proceedings of EMNLP 2014},
+  pages     = {740--750},
+  year      = {2014},
+}
+
+@inproceedings{qi2020stanza,
+  author    = {Qi, Peng and Zhang, Yuhao and Zhang, Yuhui and Bolton, Jason and
+               Manning, Christopher D.},
+  title     = {{Stanza}: A {Python} Natural Language Processing Toolkit for
+               Many Human Languages},
+  booktitle = {Proceedings of ACL 2020: System Demonstrations},
+  pages     = {101--108},
+  year      = {2020},
+}
+
+@article{dozat2017biaffine,
+  author    = {Dozat, Timothy and Manning, Christopher D.},
+  title     = {Deep Biaffine Attention for Neural Dependency Parsing},
+  journal   = {Proceedings of ICLR 2017},
+  year      = {2017},
+}
+
+@inproceedings{rust2021good,
+  author    = {Rust, Phillip and Pfeiffer, Jonas and Vuli{\'c}, Ivan and Ruder,
+               Sebastian and Gurevych, Iryna},
+  title     = {How Good is Your Tokenizer? On the Monolingual Performance of
+               Multilingual Language Models},
+  booktitle = {Proceedings of ACL/IJCNLP 2021},
+  pages     = {3118--3135},
+  year      = {2021},
+}
+
+@inproceedings{tackstrom2013token,
+  author    = {T{\"a}ckstr{\"o}m, Oscar and McDonald, Ryan and Nivre, Joakim},
+  title     = {Token and Type Constraints for Cross-lingual Part-of-Speech Tagging},
+  booktitle = {Transactions of the ACL},
+  volume    = {1},
+  pages     = {1--12},
+  year      = {2013},
+}
+
+@inproceedings{rasooli2017projection,
+  author    = {Rasooli, Mohammad Sadegh and Collins, Michael},
+  title     = {Cross-lingual Syntactic Transfer with Limited Resources},
+  booktitle = {Transactions of the ACL},
+  volume    = {5},
+  pages     = {279--293},
+  year      = {2017},
+}
+
+@inproceedings{li2021prefix,
+  author    = {Li, Xiang Lisa and Liang, Percy},
+  title     = {Prefix-Tuning: Optimizing Continuous Prompts for Generation},
+  booktitle = {Proceedings of ACL/IJCNLP 2021},
+  pages     = {4582--4597},
+  year      = {2021},
+}
+
+@inproceedings{lester2021power,
+  author    = {Lester, Brian and Al-Rfou, Rami and Constant, Noah},
+  title     = {The Power of Scale for Parameter-Efficient Prompt Tuning},
+  booktitle = {Proceedings of EMNLP 2021},
+  pages     = {3045--3059},
+  year      = {2021},
+}
+
+@inproceedings{ojha2019sanskrit,
+  author    = {Ojha, Atul Kr. and Behera, Pitambar and Singh, Diwakar Mani and
+               Sah, Sarvjeet and Jha, Girish Nath},
+  title     = {Universal Dependency Treebanks for Low-Resource {I}ndian Languages:
+               The Case of {B}hojpuri},
+  booktitle = {Proceedings of the WILDRE-5 Workshop, LREC 2019},
+  year      = {2019},
+}
+
+@inproceedings{kumar2021selfdistill,
+  author    = {Kumar, Sawan and Talukdar, Partha P.},
+  title     = {Reordering Examples Helps during Priming-based Few-Shot Learning},
+  booktitle = {Findings of ACL 2021},
+  year      = {2021},
+}
+
+@inproceedings{wang2020structuredkd,
+  author    = {Wang, Xinyu and Jiang, Yong and Bach, Nguyen and Wang, Tao and
+               Huang, Zhongqiang and Huang, Fei and Tu, Kewei},
+  title     = {Structure-Level Knowledge Distillation For Multilingual Sequence
+               Labeling},
+  booktitle = {Proceedings of ACL 2020},
+  pages     = {3317--3330},
+  year      = {2020},
+}
+
+@inproceedings{lin2020pretrained,
+  author    = {Lin, Yu-Hsiang and Chen, Chian-Yu and Lee, Jean and Li, Zirui
+               and Zhang, Yuyan and Xia, Mengzhou and Rijhwani, Shruti and
+               He, Junxian and Zhang, Zhisong and Ma, Xuezhe and Anastasopoulos,
+               Antonios and Littell, Patrick and Neubig, Graham},
+  title     = {Choosing Transfer Languages for Cross-Lingual Learning},
+  booktitle = {Proceedings of ACL 2020},
+  year      = {2020},
+}
+
+@inproceedings{gritta2022crossaug,
+  author    = {Gritta, Milan and Iacobacci, Ignacio},
+  title     = {{XeroAlign}: Zero-shot Cross-lingual Transformer Alignment},
+  booktitle = {Findings of ACL 2022},
+  year      = {2022},
+}
+
+@inproceedings{liu2022silvernlp,
+  author    = {Liu, Tianyu and Awadalla, Hany Hassan},
+  title     = {Cross-Lingual Self-Training for Low-Resource NLP},
+  booktitle = {Proceedings of NAACL 2022},
+  year      = {2022},
+}
+
+@article{chuliu1965maxspan,
+  author    = {Chu, Yoeng-Jin and Liu, Tseng-Hong},
+  title     = {On the Shortest Arborescence of a Directed Graph},
+  journal   = {Science Sinica},
+  volume    = {14},
+  pages     = {1396--1400},
+  year      = {1965},
+}
+
+@article{edmonds1967optimum,
+  author    = {Edmonds, Jack},
+  title     = {Optimum Branchings},
+  journal   = {Journal of Research of the National Bureau of Standards B},
+  volume    = {71B},
+  pages     = {233--240},
+  year      = {1967},
+}
+
+@inproceedings{steedman2003boot,
+  author    = {Steedman, Mark and Osborne, Miles and Sarkar, Anoop and Clark,
+               Stephen and Hwa, Rebecca and Hockenmaier, Julia and Ruhlen,
+               Paul and Baker, Steven and Crim, Jeremiah},
+  title     = {Bootstrapping Statistical Parsers from Small Datasets},
+  booktitle = {Proceedings of EACL 2003},
+  pages     = {331--338},
+  year      = {2003},
+}
+
+@article{sagae2010selftraining,
+  author    = {Sagae, Kenji},
+  title     = {Self-Training without Reranking for Parser Domain Adaptation
+               and Its Impact on Semantic Role Labeling},
+  journal   = {Proceedings of the 2010 Workshop on Domain Adaptation for NLP, ACL},
+  pages     = {37--44},
+  year      = {2010},
+}

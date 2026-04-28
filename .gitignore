@@ -37,3 +37,19 @@ logs/
 venv/
 .venv/
 env/
+
+# Thesis build artefacts
+thesis/.DS_Store
+thesis/*.zip
+thesis/*.aux
+thesis/*.log
+thesis/*.bbl
+thesis/*.blg
+thesis/*.out
+thesis/*.toc
+thesis/*.lof
+thesis/*.lot
+
+# Backup zips at project root
+thesis.zip
+thesis1.zip

@@ -1,0 +1,628 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage{xcolor}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage[most]{tcolorbox}
+\usepackage{fancyhdr}
+
+\definecolor{accent}{RGB}{0,51,102}
+\definecolor{part1color}{RGB}{0,110,50}
+\definecolor{part2color}{RGB}{180,30,30}
+\definecolor{softbg}{RGB}{245,245,250}
+\definecolor{pitchbg}{RGB}{240,247,255}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection.}{0.5em}{}
+\titleformat{\subsection}[hang]{\large\bfseries\color{accent}}{}{0em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\textit{Thesis Presentation Pitch --- Sanskruti Kolgane}}
+\rhead{\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+
+\newtcolorbox{pitchbox}[1]{
+  colback=pitchbg,
+  colframe=accent!60,
+  boxrule=0.3pt,
+  arc=2pt,
+  title=#1,
+  fonttitle=\bfseries\small,
+  coltitle=white,
+  colbacktitle=accent,
+  attach boxed title to top left={xshift=6pt,yshift=-3pt},
+  boxed title style={sharp corners, rounded corners=north, boxrule=0pt},
+  top=10pt
+}
+
+\newtcolorbox{tipbox}{
+  colback=yellow!10,
+  colframe=orange!70,
+  boxrule=0.3pt,
+  arc=2pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt
+}
+
+\title{\vspace{-1cm}\Huge\textbf{Thesis Presentation Pitch}\\[4pt]
+       \large Detailed Speaking Notes in Simple Language --- Slide by Slide}
+\author{Kolgane Sanskruti Sanjay \quad (21074015)\\
+        M.\,Tech Thesis Viva --- IIT (BHU) Varanasi\\
+        \textit{Supervisor:} Dr.\ Anil Kumar Singh}
+\date{}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\vspace{-0.5cm}
+
+\begin{tcolorbox}[colback=softbg,colframe=accent,boxrule=0.5pt]
+\textbf{How to use this document.} This is a slide-by-slide speaking guide in simple language. For each slide you will see:
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item \textbf{What the slide shows} --- a one-line summary.
+  \item \textbf{What to say} --- the actual pitch in simple, conversational language.
+  \item \textbf{Emphasise} --- the one or two things to stress while speaking.
+  \item \textbf{If asked} --- likely follow-up and a short honest answer.
+\end{itemize}
+\textbf{Narrative spine:} Part 1 is about my novel alignment architecture (Systems F, G, H). Part 2 is about the real Bhojpuri benchmark (Systems A, K). Don't blend the two --- finish Part 1 cleanly before starting Part 2.
+\end{tcolorbox}
+
+\vfill
+\noindent\textit{Total slides: 26. Target speaking time: 18--22 minutes, leaving 8--12 minutes for questions.}
+
+\clearpage
+
+% ─────────────────────────────────────────────────
+\section{Slide 1 --- Title Page}
+
+\begin{pitchbox}{What the slide shows}
+Thesis title, author, supervisor, institute.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Good morning, sir. Thank you for being here. My thesis is about building a dependency parser for Bhojpuri, which is a low-resource Indian language. The approach I used is to transfer knowledge from Hindi using parallel bottleneck adapters and a new syntax-aware transfer technique. I'll walk you through everything in two clear parts --- first my novel architecture work, and then the real-world benchmark evaluation.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{Emphasise:} confident opening, clearly name the two-part structure.
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 2 --- Outline}
+
+\begin{pitchbox}{What the slide shows}
+Two coloured blocks listing Part 1 and Part 2 contents.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Before diving in, let me tell you how I've organised this talk. Part 1 is about improving the parser architecture on the Hindi-Bhojpuri aligned data. I have three systems there: System F is a fine-tuning baseline, System G is my first novel contribution using parallel adapters with alignment, and System H is my main architectural contribution --- I call it SACT, syntax-aware cross-lingual transfer.
+
+Part 2 is about the real benchmark, the Bhojpuri Treebank or BHTB. There I have System A as the zero-shot baseline, and System K as my novel UD-Bridge self-training approach. Part 1 builds the architecture and lessons, and Part 2 applies those lessons to the actual benchmark where Bhojpuri parsing is evaluated.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{Emphasise:} ``Part 1 builds, Part 2 applies'' --- set the listener's mental map upfront.
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 3 --- Dependency Parsing in One Slide}
+
+\begin{pitchbox}{What the slide shows}
+Task definition on the left; an example Bhojpuri sentence parsed as a tree on the right.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Let me quickly explain dependency parsing. It's the task of finding the grammatical structure of a sentence. The rule is simple: every word points to exactly one head word, and the arrow between them carries one label that names the grammatical relationship. Together this forms a tree rooted at a special ROOT node.
+
+Look at the example on the right --- `Ram ghar jaa rahaa hai', which means `Ram is going home'. `Ram' is the subject of the verb `jaa', with label nsubj. `Ghar', meaning home, is an oblique argument with label obl. `Rahaa' and `hai' are auxiliary verbs. Each arc has one precise label.
+
+Why does this matter? Because dependency parses feed into nearly every downstream NLP task --- machine translation, question answering, information extraction. You can't build good Bhojpuri NLP tools without a parser.
+
+Two accuracy metrics. UAS, unlabelled attachment score, checks if each word's head is correct, ignoring the label. LAS, labelled attachment score, is stricter --- both head and label must be correct. LAS is the main number I'll report throughout.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{If asked:} ``Why biaffine?'' $\to$ ``Biaffine scorers have been state-of-the-art for dependency parsing since 2017 (Dozat \& Manning). They model head-dependent interactions with a bilinear form, which is expressive but efficient.''
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 4 --- Why Bhojpuri?}
+
+\begin{pitchbox}{What the slide shows}
+Language facts, linguistic leverage, and the available training resources.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Bhojpuri is a large but under-resourced language. It has between 50 and 60 million native speakers --- comparable to Italian or Korean. It's spoken mainly in Bihar, UP and Jharkhand, with a large diaspora in Mauritius, Trinidad, Fiji, Guyana, and Suriname.
+
+Despite its size, Bhojpuri has been historically mislabelled as a dialect of Hindi. It only got its own ISO language code --- `bho' --- in 2006. Because of this underclassification, there's almost no NLP infrastructure for it.
+
+The challenge for my work is there's no large annotated Bhojpuri treebank, so I have to transfer knowledge from Hindi. Fortunately this is linguistically reasonable: Bhojpuri and Hindi share the same SOV word order, a lot of vocabulary, and the same Devanagari script. So transfer is not just possible, it's natural.
+
+I have two resources to work with: a Hindi-Bhojpuri aligned corpus of roughly 30,000 sentence pairs, and the Hindi HDTB treebank with 13,304 annotated sentences in UD format. These two resources are what all my systems use.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{If asked:} ``Why not use direct Bhojpuri treebanks?'' $\to$ ``Only 357 gold-annotated Bhojpuri sentences exist in UD (the BHTB treebank). That's not enough to train a parser from scratch --- we have to transfer.''
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 5 --- Building Blocks}
+
+\begin{pitchbox}{What the slide shows}
+Backbone (XLM-R), Trankit toolkit, Pfeiffer adapters, and the biaffine scorer.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Here are the technical building blocks I use throughout. The backbone is XLM-RoBERTa, or XLM-R. It's a multilingual transformer pretrained on 100 languages --- including both Hindi and Bhojpuri. Because both languages share Devanagari, XLM-R already has sub-word tokens that work across both.
+
+I use the Trankit toolkit, which is an end-to-end multilingual NLP pipeline that supports language-specific adapters and includes a native biaffine parsing head out of the box.
+
+The adapters are key. I use Pfeiffer-style bottleneck adapters with dimension 64. The equation on the slide shows the standard form --- down-projection, non-linearity, up-projection, then residual connection. The important thing is: with adapters, the backbone stays frozen. I only train about 100K parameters per language --- a tiny fraction of the full model. This means no catastrophic forgetting of the multilingual prior.
+
+Finally, the biaffine scorer. It computes the likelihood of each word being the head of each other word using a bilinear form. This is the standard state-of-the-art design for dependency parsing.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{Emphasise:} frozen backbone + small adapters $\Rightarrow$ efficient transfer without forgetting. This pattern matters for Systems G, H, and K.
+\end{tipbox}
+
+\clearpage
+
+% ─────────────────────────────────────────────────
+\begin{center}
+{\LARGE\bfseries\color{part1color}PART 1 --- Novel Cross-Lingual Alignment}
+\end{center}
+
+\vspace{0.3cm}
+\begin{tcolorbox}[colback=part1color!5,colframe=part1color,boxrule=0.5pt]
+\textbf{Part 1 story in one line:} naive fine-tuning (F) gives poor results on aligned data; my novel adapter-based alignment (G, H) improves it by over \textbf{32 LAS points}, and my syntax-aware variant (H) also converges \textbf{5$\times$ faster}.
+\end{tcolorbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 6 --- System F: Warm-Start Fine-Tuning (Baseline)}
+
+\begin{pitchbox}{What the slide shows}
+Setup, Dev result (weak), limitations, and the research question that motivates G and H.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Now we start Part 1. System F is my baseline --- the straightforward, obvious approach. I start from a Hindi-pretrained Trankit checkpoint and fine-tune all parameters on the 30,000 Hindi-Bhojpuri aligned pairs using standard cross-entropy loss.
+
+The result is quite weak --- only 27.57\% UAS and 17.75\% LAS on the Dev set. That's surprisingly low, and it tells us something important. A few reasons. First, full fine-tuning updates around 270 million parameters on a small dataset --- that's a recipe for overfitting and catastrophic forgetting of the multilingual knowledge XLM-R already has. Second, there's no explicit cross-lingual alignment signal --- the model isn't told that Hindi and Bhojpuri are related. It just sees Bhojpuri and tries to predict labels.
+
+This motivates my research question: can we do much better by explicitly aligning Hindi and Bhojpuri representations? And the plan is --- System G adds freeze plus MSE alignment, and System H replaces MSE with syntax-aware losses.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{Emphasise:} F is \textit{deliberately} the naive baseline. The weakness of F makes the Part 1 story dramatic --- my novel systems produce huge gains, not small ones.
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 7 --- System G: Parallel Adapters + MSE Alignment (Novel \#1)}
+
+\begin{pitchbox}{What the slide shows}
+Two design changes (freeze backbone, MSE alignment), training objective, and the Dev result.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``System G is my first novel contribution. It makes two design changes compared to System F.
+
+First, I freeze XLM-R completely. Instead of fine-tuning the whole 270-million-parameter backbone, I only train small adapter modules plus the parsing heads. Total trainable parameters drop to around 200K --- a thousand times smaller. This prevents catastrophic forgetting because the multilingual prior stays untouched.
+
+Second --- and this is the novel idea --- I add an MSE alignment loss. For matched tokens between Hindi and Bhojpuri in the parallel data, I pull their hidden state representations closer together using mean squared error. The idea is: Hindi has a lot of training signal, Bhojpuri has little. By making Bhojpuri representations mimic Hindi representations at matched positions, I transfer Hindi's structural knowledge into Bhojpuri's representation space.
+
+The full training objective combines the Bhojpuri parsing loss, a Hindi auxiliary loss at weight 0.3, and the MSE alignment at weight 0.5.
+
+The result is 55.70\% UAS and 50.02\% LAS on Dev. That's a massive jump over System F --- \textbf{plus 32.3 LAS points} --- and with a thousand times fewer trainable parameters. The takeaway is: freezing plus explicit alignment completely transforms the performance.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{Emphasise:} +32.3 LAS gain \textit{and} 1000$\times$ fewer params. Both numbers together tell the story.
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 8 --- System H: SACT (Novel \#2, Main Contribution)}
+
+\begin{pitchbox}{What the slide shows}
+Three syntax-aware losses: content-word cosine, Arc-KL distillation, Cross-lingual Tree Supervision (CTS).
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``System H is my main architectural contribution. I call it SACT --- Syntax-Aware Cross-Lingual Transfer.
+
+The problem with MSE alignment in System G is that it's too blunt. It pulls all representations together with equal force --- including function words, punctuation, and tokens that don't carry syntactic structure. MSE treats every token the same way.
+
+SACT replaces that blunt MSE with three smarter, syntax-aware losses.
+
+\textit{First, content-word cosine alignment.} Instead of MSE, I use cosine similarity --- which is scale-invariant. And I weight tokens by part of speech: nouns and verbs, which carry structure, get weight 1.5. Function words get weight 0.3. This forces the model to focus its alignment effort on syntactic anchors.
+
+\textit{Second, Arc-KL distillation.} I use the Hindi parser as a teacher. For matched tokens, I make the Bhojpuri parser match the Hindi parser's arc score distribution using KL divergence. This transfers not just what the representation looks like --- but what parsing decision Hindi would make.
+
+\textit{Third, Cross-lingual Tree Supervision, CTS.} For each matched Hindi-Bhojpuri token pair, I reuse the Hindi gold head as supervision for Bhojpuri. This doubles my structural training signal using clean gold data --- not auto-transferred data.
+
+The combined objective has five terms with the weights shown. Final Dev result: 55.85\% UAS and 50.08\% LAS --- my best architecture on the aligned data.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{If asked:} ``Why these three specific losses?'' $\to$ ``Each attacks a different level of supervision: cosine aligns representations, Arc-KL aligns decisions, CTS provides direct structural supervision. The ablation (next slide) shows each is non-redundant.''
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 9 --- Results on Aligned Dev Set}
+
+\begin{pitchbox}{What the slide shows}
+Full F/G/H results table plus head-to-head LAS gains.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``This slide puts Part 1 together in one table. F gets only 17.75\% LAS. G jumps to 50.02\% --- a plus 32.3 point gain just by freezing the backbone and adding MSE alignment. H reaches 50.08\% --- a tiny 0.06-point gain over G at convergence.
+
+You might look at that 0.06 and think SACT barely matters. But look at the head-to-head column on the right. \textbf{At epoch 1, H is already 3.3 points ahead of G.} So SACT converges dramatically faster --- the syntax-aware losses give stronger gradient signal from the very start. I'll show this visually on the next slide.
+
+The big takeaway, highlighted in green: both of my novel designs --- G and H --- massively beat the naive fine-tuning baseline F.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{Emphasise:} the 0.06 at convergence is misleading in isolation --- the real win for H is training efficiency.
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 10 --- Learning Curves: G vs.\ H}
+
+\begin{pitchbox}{What the slide shows}
+Dev LAS vs.\ epoch for G (MSE) and H (SACT).
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``This is where SACT really shows off. The x-axis is training epochs, y-axis is Dev LAS.
+
+System G --- the blue squares --- starts low at epoch 1 and climbs slowly over 10 epochs to reach its final score around 50.
+
+System H --- the red triangles --- starts 3.3 points higher at epoch 1 and almost plateaus by epoch 2.
+
+Why does this happen? Because MSE alignment in G only aligns hidden representations. The parser has to then figure out, on its own, how aligned representations should translate into correct parsing decisions. That takes time. SACT's Arc-KL and CTS losses directly supervise parsing decisions --- so the gradient signal is much stronger from epoch 1.
+
+This is practically valuable. If you're compute-constrained or time-constrained, SACT gets you to near-final performance in 2 epochs instead of 10. That's roughly a 5$\times$ speedup.''
+\end{pitchbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 11 --- Ablation}
+
+\begin{pitchbox}{What the slide shows}
+LAS drop when each SACT component is removed individually, plus removing all auxiliaries.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``I ran ablation experiments to confirm every SACT component pulls its weight. I removed one loss at a time and measured the Dev LAS drop.
+
+The ranking, from most important to least: Hindi regularisation loss contributes 0.46 points, cosine alignment contributes 0.37, Cross-lingual Tree Supervision contributes 0.21, Arc-KL distillation contributes 0.14.
+
+Removing all four auxiliary losses drops 1.15 points total --- which is close to the sum of individual drops. This means the four losses are largely complementary, not redundant.
+
+None of the four components is dead weight. Every one of them pulls the architecture forward. This is an important check --- it means the SACT design is principled, not over-engineered.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{If asked:} ``Arc-KL has lowest LAS drop but highest weight (2.0) in the loss. Why?'' $\to$ ``Arc-KL converges fastest and stabilises training. Its marginal drop at convergence is small because by then the model has learned the decisions, but its role in guiding early training is large --- which is what the learning curves on the previous slide also confirm.''
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 12 --- Part 1 Takeaway (Bridge Slide)}
+
+\begin{pitchbox}{What the slide shows}
+A green takeaway box with the Part 1 conclusion, plus a footnote hinting at Part 2.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Let me summarise Part 1 clearly. \textbf{My novel cross-lingual alignment losses improve massively over naive fine-tuning on the Hindi-Bhojpuri aligned corpus.}
+
+What worked? Three things. One --- freezing the backbone and training adapters (G and H) beats full fine-tuning (F) by a huge margin. Two --- syntax-aware supervision in H beats uniform MSE in G on convergence speed. Three --- SACT gives a much stronger gradient signal from epoch 1.
+
+The architectural progression is F to G to H. F to G gives plus 32.3 LAS at convergence. G to H gives only 0.06 at convergence but 3.3 at epoch 1.
+
+[\textit{Pause for a beat.}]
+
+Now --- aligned-data performance is one side of the coin. But the real Bhojpuri benchmark isn't the aligned Dev set. It's something else entirely. Let me turn to that now.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{Emphasise:} this is the most important bridge slide. Pause after ``let me turn to that now'' for a deliberate beat before moving to Slide 13.
+\end{tipbox}
+
+\clearpage
+
+% ─────────────────────────────────────────────────
+\begin{center}
+{\LARGE\bfseries\color{part2color}PART 2 --- Real-World Benchmark Evaluation}
+\end{center}
+
+\vspace{0.3cm}
+\begin{tcolorbox}[colback=part2color!5,colframe=part2color,boxrule=0.5pt]
+\textbf{Part 2 story in one line:} the actual Bhojpuri benchmark is BHTB, not the aligned Dev set. My Part 1 systems can't be evaluated there because of schema mismatch. System A is the zero-shot baseline (35.36 LAS); my novel System K --- UD-Bridge via silver self-training --- reaches \textbf{36.70 LAS}, beating A by \textbf{+1.34 LAS}.
+\end{tcolorbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 13 --- The Bhojpuri Treebank (BHTB) --- The Real Benchmark}
+
+\begin{pitchbox}{What the slide shows}
+BHTB facts on the left; the schema mismatch between aligned data and BHTB on the right.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``This is the most important motivation slide in Part 2, so please follow carefully.
+
+The Bhojpuri Treebank, or BHTB, is the only gold-annotated Bhojpuri treebank that exists. It has 357 manually annotated sentences in the strict Universal Dependencies schema, and it's the standard evaluation set for any Bhojpuri parser. It's test-only --- we cannot train on it.
+
+Now, you might ask: why can't I just take my Part 1 systems --- F, G, H --- and evaluate them on BHTB? They're good parsers, right? Here's the critical problem.
+
+The Hindi-Bhojpuri aligned corpus I used in Part 1 doesn't have clean UD labels. Its annotations were automatically transferred from Hindi --- and that process introduces multiple roots per sentence, cycles, and relation labels that aren't in the UD inventory. So F, G, and H have all learned this `aligned-data dialect' of labels --- which doesn't match BHTB's strict UD dialect at all.
+
+The label inventories are fundamentally incompatible. If I train in one dialect and evaluate in the other, the training signal lives in the wrong label space. To compete on BHTB, I need a completely different strategy --- I need to train in the UD label space from the start. That's what Part 2 is about.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{Emphasise:} slow down here. The schema-mismatch explanation is the entire motivation for System K. If the supervisor understands this slide, Part 2 lands easily.
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 14 --- System A: Zero-Shot Baseline on BHTB}
+
+\begin{pitchbox}{What the slide shows}
+Zero-shot pipeline diagram on the right; result and baseline role on the left.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``System A is my baseline for the BHTB evaluation. The idea is simple: rely entirely on XLM-R's multilingual shared representations.
+
+I train Trankit only on Hindi HDTB --- 13,000 UD-labelled Hindi sentences --- with zero Bhojpuri training. Then I apply it directly to Bhojpuri at test time. Because HDTB is native UD, the model's labels automatically live in the UD schema --- which matches BHTB.
+
+Result: 52.78\% UAS and 35.36\% LAS on BHTB gold. A reasonable baseline considering I haven't seen a single labelled Bhojpuri sentence. It works because XLM-R's shared Hindi-Bhojpuri sub-word space transfers quite naturally.
+
+This 35.36\% LAS is the target --- this is what System K has to beat.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{If asked:} ``Why does zero-shot work at all?'' $\to$ ``XLM-R is pretrained on both Hindi and Bhojpuri, so its sub-word embeddings already encode cross-language similarity. Combined with the high structural similarity between Hindi and Bhojpuri, the parser generalises --- especially for morphologically-marked local relations.''
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 15 --- System K: UD-Bridge via Silver Self-Training (Novel)}
+
+\begin{pitchbox}{What the slide shows}
+Three-step pipeline: generate silver with A $\to$ merge with HDTB $\to$ train K.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``System K is my novel contribution for the benchmark. I call it UD-Bridge via silver self-training.
+
+The premise is simple but powerful: \textbf{schema consistency beats data quantity}. What I mean is --- having noisy data in the right label space is more useful than having clean data in the wrong label space.
+
+The pipeline has three steps, shown in the diagram.
+
+\textit{Step 1.} Take the 30,966 Bhojpuri sentences from the Hindi--Bhojpuri aligned corpus --- the same Bhojpuri text used in Part 1 --- and \textbf{strip away the auto-transferred labels}. Run System A on the bare tokens. Because System A operates in UD space, it produces silver UD-labelled Bhojpuri data. The labels are noisy because System A isn't perfect, but crucially they are schema-consistent with BHTB.
+
+\textit{Step 2.} Concatenate this silver Bhojpuri data with the 13,000 gold HDTB sentences. Now I have a combined training corpus --- all in UD space.
+
+\textit{Step 3.} Train a fresh Trankit model on this combined corpus. The Hindi HDTB gold acts as a regulariser that anchors the model to correct UD structure, while the silver Bhojpuri adds language-specific supervision.
+
+Result: 54.27\% UAS and 36.70\% LAS on BHTB --- surpassing System A's 35.36\% LAS by 1.34 points. This is state-of-the-art on real Bhojpuri parsing.''
+\end{pitchbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 16 --- Why UD-Bridge Works}
+
+\begin{pitchbox}{What the slide shows}
+The schema-consistency argument on the left; why silver data is good enough on the right.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Let me explain why this approach works, because it's the main intellectual insight of Part 2.
+
+System A is already a parser that lives in UD space, trained on Hindi HDTB. When it parses Bhojpuri, its output labels are automatically UD-compatible. Yes, they're noisy --- System A gets things wrong. But they're not \textit{systematically} wrong. They're just random errors scattered across a correct UD label inventory.
+
+On the right, I address the obvious concern --- what makes this silver data good enough? Three reasons. The errors are random, not systematic. Adding HDTB gold pulls the silver errors back toward correct UD patterns --- it regularises the training. And crucially, because training and test are now in the same schema, any gain on the training objective transfers directly to BHTB evaluation.
+
+The core claim, highlighted at the bottom: \textbf{noisy data in the right annotation space is more useful than high-quality data in the wrong annotation space} --- at least for benchmark evaluation.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{Emphasise:} ``schema consistency'' is the methodological insight that generalises beyond Bhojpuri. State it clearly.
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 17 --- Results on BHTB Gold}
+
+\begin{pitchbox}{What the slide shows}
+A vs.\ K comparison table, why-K-wins bullets, and a headline win box.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Here are the Part 2 results.
+
+System A, zero-shot baseline: 52.78 UAS, 35.36 LAS.
+System K, my UD-Bridge approach: 54.27 UAS, 36.70 LAS.
+
+K wins by plus 1.49 UAS and plus 1.34 LAS.
+
+Why K wins --- three reasons. One: it adds Bhojpuri-specific supervision from the silver data, which System A never sees. Two: training and test labels are both in the UD schema, so there's no mismatch. Three: HDTB gold anchors the training and stops silver noise from dominating.
+
+The bottom line is in the red box: K beats A by 1.49 UAS and 1.34 LAS --- state-of-the-art on real Bhojpuri parsing.''
+\end{pitchbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 18 --- Error Analysis: Where the Parser Wins and Loses}
+
+\begin{pitchbox}{What the slide shows}
+Per-relation LAS for System A, split into structural/local vs.\ clausal/long-range.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``To understand the parser's behaviour better, I broke down System A's errors by relation type. The table has two groups.
+
+On the left, structural and local relations --- things like case markers, root assignment, punctuation, and noun modifiers. These transfer well from Hindi. Case markers at 83\%, root at 50\% --- quite good.
+
+On the right, clausal and long-range relations --- relative clauses, adverbial clauses, complement clauses, coordination. These collapse. \textit{acl} at 1\%, \textit{advcl} at 4\%, \textit{xcomp} at 0\%, \textit{ccomp} at 0\%.
+
+The pattern is clear. Short-arc, morphologically-marked relations transfer well because those features are consistent between Hindi and Bhojpuri. But clause-level relations depend on word order and syntactic structures where Bhojpuri diverges from Hindi --- and Hindi supervision alone can't teach that.
+
+The lesson for future work: if we want the parser to improve on clausal relations, we need native Bhojpuri supervision --- which is exactly what UD-Bridge provides through its silver training data.''
+\end{pitchbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 19 --- Part 2 Takeaway}
+
+\begin{pitchbox}{What the slide shows}
+A red takeaway box with Part 2 conclusion; what made the difference; bigger methodological lesson.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Summarising Part 2: \textbf{UD-Bridge self-training beats the zero-shot baseline on BHTB --- advancing state-of-the-art on real Bhojpuri parsing.}
+
+What made the difference? Three things: training and test schemas are aligned, silver Bhojpuri data provides language-specific supervision, and HDTB gold stops the silver noise from running away.
+
+The bigger lesson --- and this is a methodological insight that applies beyond just Bhojpuri --- is that schema consistency matters as much as model quality. Noisy-but-correctly-labelled beats clean-but-mislabelled. And self-training is a principled, clean way to bridge zero-shot to low-resource settings.''
+\end{pitchbox}
+
+\clearpage
+
+% ─────────────────────────────────────────────────
+\begin{center}
+{\LARGE\bfseries\color{accent}CONCLUSION}
+\end{center}
+
+% ─────────────────────────────────────────────────
+\section{Slide 20 --- Key Findings Across Both Parts}
+
+\begin{pitchbox}{What the slide shows}
+Four numbered findings that cut across Parts 1 and 2.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Stepping back across both parts, I have four main findings.
+
+\textit{One: freezing the backbone is essential.} Full fine-tuning in System F collapsed to 17.75\% LAS because it destroys the multilingual prior. Adapters preserve it at negligible cost.
+
+\textit{Two: syntax-aware alignment beats representation alignment.} SACT's Arc-KL and CTS supervise parsing decisions directly --- a stronger and faster signal than MSE on hidden states.
+
+\textit{Three: schema consistency matters as much as model quality.} Strong performance on one dataset doesn't automatically transfer to a differently-labelled benchmark. The training signal must live in the test set's label space.
+
+\textit{Four: self-training with schema-consistent silver data is a clean bridge into low-resource settings.} UD-Bridge shows that a zero-shot teacher can produce useful training data for a student, even without any gold Bhojpuri.''
+\end{pitchbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 21 --- Contributions}
+
+\begin{pitchbox}{What the slide shows}
+Two architectural contributions (G, H), one benchmark contribution (K), and one methodological insight.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``My contributions group into three buckets.
+
+From Part 1, two \textit{architectural} contributions. System G: my parallel adapter architecture with frozen XLM-R and MSE alignment. System H, the main one: SACT --- three syntax-aware alignment losses (content-word cosine, Arc-KL distillation, Cross-lingual Tree Supervision). H achieves 50.08\% LAS on aligned Dev.
+
+From Part 2, one \textit{benchmark} contribution. System K: UD-Bridge silver self-training, achieving 36.70\% LAS on BHTB --- new state-of-the-art.
+
+And across both parts, one \textit{methodological insight}: I identified and characterised the annotation-schema mismatch problem in cross-lingual parsing, and showed that noisy but schema-consistent supervision outperforms clean but schema-mismatched supervision on benchmarks. This generalises beyond just Bhojpuri.''
+\end{pitchbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 22 --- Future Work}
+
+\begin{pitchbox}{What the slide shows}
+Four categories: short-term, data augmentation, architecture improvements, generalisation.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``Future work splits into four directions.
+
+\textit{Short term:} iterative silver-to-model-to-silver self-training so the model bootstraps itself over multiple rounds. Agreement filtering between A and K predictions to identify reliable silver labels.
+
+\textit{Data augmentation:} synthetic UD treebanks via CPG-to-UD conversion plus Hindi-to-Bhojpuri translation. And extending BHTB gold annotations.
+
+\textit{Architecture improvements:} multi-layer adapters across all 12 XLM-R layers instead of just some. Non-projective MST decoding for more complex tree structures. Morphology-aware alignment.
+
+\textit{Generalisation:} extend the framework to other low-resource Indic languages --- Maithili, Magahi, Awadhi, Rajasthani. Cluster adapters across language families. Multi-source transfer combining signals from several Indic languages.''
+\end{pitchbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 23 --- Thank You}
+
+\begin{pitchbox}{What the slide shows}
+Closing slide with name, institute, supervisor, and repo name.
+\end{pitchbox}
+
+\begin{pitchbox}{What to say}
+``That's the main talk. Thank you, sir. Happy to take any questions.''
+\end{pitchbox}
+
+\begin{tipbox}
+\textbf{Emphasise:} short, confident closing. Don't trail off. Pause and make eye contact.
+\end{tipbox}
+
+\clearpage
+
+% ─────────────────────────────────────────────────
+\begin{center}
+{\LARGE\bfseries\color{accent}BACKUP SLIDES}
+\end{center}
+
+\vspace{0.2cm}
+\begin{tipbox}
+Use backup slides only if specifically asked. Don't volunteer to show them. A one-line summary per slide is enough unless the supervisor wants more depth.
+\end{tipbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 24 --- Backup: Hyperparameters}
+
+\begin{pitchbox}{If asked}
+``Adapter bottleneck dimension 64, standard Pfeiffer setup. Arc MLP dimension 500, label MLP dimension 100, MLP dropout 0.33. Max 60 epochs, batch size 16. Optimiser is AdamW with learning rate 2$\times$10\textsuperscript{-3} for adapters and 5$\times$10\textsuperscript{-5} for full fine-tuning. The LR choice reflects the fact that adapters are initialised near zero and can tolerate larger steps; full FT needs smaller steps to avoid breaking the pretrained backbone.''
+\end{pitchbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 25 --- Backup: Datasets}
+
+\begin{pitchbox}{If asked}
+``HDTB --- Hindi, 13,304 sentences, used as training auxiliary in Part 1 and training main in Part 2. Hindi-Bhojpuri aligned corpus --- 30,966 pairs, Part 1 main training. Aligned Dev split --- 3,097 sentences, Part 1 evaluation. BHTB --- 357 sentences, UD, Part 2 evaluation, test-only. The key asymmetry is that only 357 gold Bhojpuri sentences exist in the UD universe --- which is exactly why transfer and self-training are essential.''
+\end{pitchbox}
+
+% ─────────────────────────────────────────────────
+\section{Slide 26 --- Backup: SACT Loss in Detail}
+
+\begin{pitchbox}{If asked}
+``Three equations shown. Cosine loss is weighted cosine similarity between matched Hindi-Bhojpuri hidden states, with token-level weights. Arc-KL is KL divergence between Hindi teacher and Bhojpuri student arc score distributions, summed over tokens. CTS is the standard supervised cross-entropy loss on both arc and label, applied using the Hindi gold heads reused on Bhojpuri.
+
+Final combined loss weights: Bhojpuri main 1.0, Hindi auxiliary 0.5, cosine 0.4, Arc-KL 2.0, CTS 0.2. Arc-KL has the highest weight because distillation provides the most direct supervision on parsing decisions --- even though its individual ablation drop is small at convergence, it dominates early training. The weights were selected on a small Dev grid.''
+\end{pitchbox}
+
+\clearpage
+
+% ─────────────────────────────────────────────────
+\section*{General Presenting Tips}
+
+\begin{tcolorbox}[colback=softbg,colframe=accent,boxrule=0.3pt,title=\textbf{While speaking},coltitle=white,colbacktitle=accent]
+\begin{itemize}[leftmargin=*,itemsep=3pt]
+  \item Don't read the bullets verbatim. Speak the idea behind them.
+  \item The narrative spine is \textbf{Part 1 $\to$ Part 2}. Finish Part 1 cleanly before starting Part 2.
+  \item Slides that matter most: \textbf{Slide 8 (SACT)}, \textbf{Slide 12 (Part 1 Takeaway)}, \textbf{Slide 13 (BHTB schema mismatch)}, \textbf{Slide 15 (UD-Bridge)}. Slow down on these.
+  \item On result slides (9, 17), lead with the headline number, \textit{then} the caveat.
+  \item If interrupted, answer the question directly. Don't rush back to the bullets.
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=yellow!10,colframe=orange!70,boxrule=0.3pt,title=\textbf{Handling tough questions},coltitle=white,colbacktitle=orange!80!black]
+\begin{itemize}[leftmargin=*,itemsep=3pt]
+  \item \textit{``Why is F so weak?''} --- Small dataset plus 270M params plus no alignment signal. Overfitting and forgetting.
+  \item \textit{``Is 1.34 LAS a significant gain on BHTB?''} --- Yes, because BHTB is only 357 sentences and the schema is strict. Small absolute LAS gains reflect real structural improvements. I can compute significance bootstraps if needed.
+  \item \textit{``Why not just annotate more Bhojpuri gold?''} --- We propose exactly that in Future Work. But UD-Bridge works with what's available today --- that's its practical value.
+  \item \textit{``Does this transfer to Maithili/Magahi/etc?''} --- Expected to, because the schema-consistency principle is language-agnostic. That's part of future work.
+\end{itemize}
+\end{tcolorbox}
+
+\begin{tcolorbox}[colback=part1color!5,colframe=part1color,boxrule=0.3pt,title=\textbf{One-sentence elevator pitch (if asked to compress)},coltitle=white,colbacktitle=part1color]
+\textit{``I built a cross-lingual dependency parser for Bhojpuri by combining syntax-aware adapter alignment (SACT) on a Hindi-Bhojpuri aligned corpus with UD-Bridge silver self-training on the BHTB benchmark, achieving 50.08 LAS on aligned Dev and 36.70 LAS on BHTB --- state-of-the-art for Bhojpuri.''}
+\end{tcolorbox}
+
+\end{document}
