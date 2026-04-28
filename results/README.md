@@ -14,18 +14,20 @@ described in the thesis, along with a machine-readable summary.
 | `system_h.txt`    | System H — SACT (Part 1 winner)                |
 | `system_k.txt`    | System K — UD-Bridge silver training (Part 2)  |
 
-## Headline Numbers
+## Headline Results (matches PPT / thesis)
 
-| System | Eval Set       | UAS    | LAS    |
-|--------|----------------|--------|--------|
-| A      | BHTB gold      | 52.78  | 35.36  |
-| F      | Aligned Dev    | 27.57  | 17.75  |
-| G      | Aligned Dev    | 55.70  | 50.02  |
-| **H**  | **Aligned Dev**| **55.85** | **50.08** |
-| **K**  | **BHTB gold**  | **54.27** | **36.70** |
+| Role              | System         | UAS    | LAS    |
+|-------------------|----------------|--------|--------|
+| Part 1 winner     | H (SACT)       | 55.85  | 50.08  |
+| Part 2 winner     | K (UD-Bridge)  | 54.27  | 36.70  |
+| Part 2 baseline   | A (zero-shot)  | 52.78  | 35.36  |
+| Part 1 baseline   | F (full FT)    | 27.57  | 17.75  |
+| Part 1 G          | Adapters + MSE | 55.70  | 50.02  |
 
-System H is the **Part 1 winner** (architectural innovation on aligned data).
-System K is the **Part 2 winner** (real-benchmark improvement on BHTB).
+System H is the **Part 1 winner** (architectural innovation on the
+Hindi--Bhojpuri aligned data).
+System K is the **Part 2 winner** (real-benchmark improvement on the BHTB
+gold test set).
 
 For a fully detailed experimental report including learning curves, ablation
 studies, sensitivity analysis, and per-relation breakdowns, see

@@ -5,12 +5,15 @@ presentation, with the exact numbers used in the final write-up.
 
 ---
 
-## Headline Results
+## Headline Results (matches PPT / thesis)
 
-| Track                              | System | UAS         | LAS         |
-|------------------------------------|--------|-------------|-------------|
-| Aligned-Data Dev (Part 1 winner)   | **H (SACT)** | **55.85** | **50.08** |
-| BHTB Gold Test (Part 2 winner)     | **K (UD-Bridge)** | **54.27** | **36.70** |
+| Role              | System         | UAS    | LAS    |
+|-------------------|----------------|--------|--------|
+| Part 1 winner     | H (SACT)       | 55.85  | 50.08  |
+| Part 2 winner     | K (UD-Bridge)  | 54.27  | 36.70  |
+| Part 2 baseline   | A (zero-shot)  | 52.78  | 35.36  |
+| Part 1 baseline   | F (full FT)    | 27.57  | 17.75  |
+| Part 1 G          | Adapters + MSE | 55.70  | 50.02  |
 
 ---
 
