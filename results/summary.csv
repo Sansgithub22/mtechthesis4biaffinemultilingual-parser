@@ -1,0 +1,6 @@
+system,name,part,backbone,trainable_params,eval_set,uas,las,notes
+A,Zero-shot Trankit,2,Trankit XLM-R,~278M,BHTB gold (357 sent),52.78,35.36,Hindi-only training; zero-shot to Bhojpuri
+F,Warm-start full fine-tune,1,Trankit XLM-R,~278M,Aligned Dev (3097 sent),27.57,17.75,Naive baseline; full FT collapses on small data
+G,Parallel adapters + MSE,1,Frozen XLM-R + 2 adapters,~200K,Aligned Dev (3097 sent),55.70,50.02,First novel contribution; +32.3 LAS over F
+H,SACT (cosine + arc-KL + CTS),1,Frozen XLM-R + 2 adapters,~200K,Aligned Dev (3097 sent),55.85,50.08,Part 1 winner; converges 5x faster than G
+K,UD-Bridge silver self-training,2,Trankit XLM-R,~278M,BHTB gold (357 sent),54.27,36.70,Part 2 winner; +1.49 UAS / +1.34 LAS over A

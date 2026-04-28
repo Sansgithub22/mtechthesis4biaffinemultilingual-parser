@@ -1,0 +1,60 @@
+================================================================
+System A — Zero-Shot Trankit (Hindi → Bhojpuri)
+================================================================
+
+Description:
+  Train Trankit on Hindi HDTB (13,304 UD sentences) and apply directly
+  to Bhojpuri test data without any Bhojpuri-specific training. Relies
+  entirely on XLM-R's shared multilingual representations.
+
+Backbone:           xlm-roberta-base (full Trankit fine-tune)
+Trainable params:   ~278 M
+Training data:      Hindi HDTB train (13,304 sentences)
+Bhojpuri training:  None (zero-shot)
+
+----------------------------------------------------------------
+Evaluation: BHTB gold test (357 sentences, strict UD v2)
+----------------------------------------------------------------
+UAS:                52.78 %
+LAS:                35.36 %
+
+----------------------------------------------------------------
+Per-relation breakdown (Top relations on BHTB)
+----------------------------------------------------------------
+Relation     Correct    Total      LAS
+case         755        907        83.2 %
+nmod         261        907        28.8 %
+punct        317        695        45.6 %
+root         177        357        49.6 %
+amod          74        202        36.6 %
+nsubj        ...        198        ...
+mark          52        123        42.3 %
+obj           18        122        14.8 %
+acl            1        105         1.0 %
+advcl          3         82         3.7 %
+xcomp          0         67         0.0 %
+ccomp          0         58         0.0 %
+cc             1         30         3.3 %
+
+Pattern:
+  - Local / morphologically marked relations (case, root, punct)
+    transfer well from Hindi.
+  - Clausal / long-range relations (xcomp, ccomp, acl, advcl)
+    collapse — Bhojpuri syntax diverges from Hindi here.
+
+----------------------------------------------------------------
+In-domain Hindi performance (validates pipeline)
+----------------------------------------------------------------
+                          UAS       LAS
+System A (ours, Hindi):   ~95.6     ~92.6
+Trankit-base published:    96.54     92.70
+
+Within ±1 LAS of published Trankit numbers — pipeline reproduces
+the expected baseline. The ~57 LAS drop from Hindi (92.6) to
+Bhojpuri (35.36) is the expected gap of zero-shot cross-lingual
+transfer to a low-resource target.
+
+----------------------------------------------------------------
+Role
+----------------------------------------------------------------
+This is the baseline that System K (UD-Bridge) must beat in Part 2.

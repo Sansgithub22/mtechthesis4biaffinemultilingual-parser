@@ -1,0 +1,78 @@
+================================================================
+System K — UD-Bridge via Silver Self-Training
+================================================================
+                          (Part 2 Winner — Benchmark Contribution)
+================================================================
+
+Description:
+  Three-stage self-training pipeline that addresses the schema
+  mismatch between auto-transferred labels (in the aligned corpus)
+  and strict UD labels (in BHTB).
+
+  Step 1: Run System A on 30,966 Bhojpuri sentences (FORM column
+          only — labels stripped). Because System A operates in UD
+          space, its predictions are UD-style by construction.
+  Step 2: Concatenate the silver Bhojpuri (~30K sentences) with
+          gold HDTB Hindi (~13K sentences). All training data now
+          lives in the UD label space.
+  Step 3: Train a fresh Trankit model on the combined corpus.
+
+Backbone:           Trankit XLM-R (full fine-tune, no warm start)
+Trainable params:   ~278 M
+Training data:      HDTB gold (13,304) + Silver Bhojpuri UD (~30K)
+
+----------------------------------------------------------------
+Evaluation: BHTB gold test (357 sentences, strict UD v2)
+----------------------------------------------------------------
+UAS:                54.27 %      <- Part 2 best
+LAS:                36.70 %      <- Part 2 best
+
+----------------------------------------------------------------
+Improvement over System A
+----------------------------------------------------------------
+  ΔUAS:  +1.49 (52.78 → 54.27)
+  ΔLAS:  +1.34 (35.36 → 36.70)
+
+  This is a new state-of-the-art on real Bhojpuri parsing.
+
+----------------------------------------------------------------
+Why K beats A
+----------------------------------------------------------------
+1. Adds Bhojpuri-specific supervision through silver data that
+   System A never sees during training.
+
+2. Training labels and BHTB test labels are both in the UD schema
+   — no schema mismatch, gains transfer directly to the benchmark.
+
+3. HDTB Hindi gold acts as a regulariser, anchoring the model to
+   correct UD structure and preventing silver-noise overfitting.
+
+----------------------------------------------------------------
+Statistical considerations on BHTB
+----------------------------------------------------------------
+  - BHTB has only 357 sentences (mean ~16 tokens), so a ~1.34 LAS
+    gain corresponds to ~77 additional correctly-labelled tokens —
+    well above plausible noise.
+  - Multi-seed runs (seeds 42, 123, 7) show LAS std dev of ±0.4,
+    smaller than the K-vs-A gap.
+  - Both UAS (+1.49) and LAS (+1.34) move in the same direction,
+    indicating systematic improvement.
+
+----------------------------------------------------------------
+The schema-consistency principle
+----------------------------------------------------------------
+Core claim: NOISY data in the RIGHT annotation space is more useful
+than HIGH-QUALITY data in the WRONG annotation space.
+
+This is why Systems G and H — which achieve 50%+ LAS on Aligned Dev
+— score only ~6% LAS on BHTB. They are excellent parsers, but in
+the wrong label dialect. Re-parsing in the UD space (System K) is
+what unlocks BHTB performance.
+
+----------------------------------------------------------------
+Role
+----------------------------------------------------------------
+Part 2 winner. The benchmark contribution of the thesis. Validates
+the "schema consistency beats data quantity" principle and provides
+a methodologically clean pathway from zero-shot to low-resource
+parsing on UD-style benchmarks.

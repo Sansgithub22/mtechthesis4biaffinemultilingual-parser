@@ -1,0 +1,62 @@
+================================================================
+System G — Parallel Adapters + MSE Alignment
+================================================================
+                          (First Novel Contribution)
+================================================================
+
+Description:
+  Two key changes from System F:
+    (1) Freeze XLM-R completely. Train only Pfeiffer adapters
+        (r=64, ~100K params each) and biaffine heads.
+    (2) Add an MSE positional alignment loss that pulls Bhojpuri
+        hidden states toward Hindi hidden states at matched
+        token positions.
+
+Backbone:           Frozen XLM-R + 2 language adapters
+Trainable params:   ~200 K total (1000x fewer than F)
+Training data:      Hindi-Bhojpuri aligned corpus (30,966 pairs)
+
+----------------------------------------------------------------
+Training objective
+----------------------------------------------------------------
+  L_G = L_bho + 0.3 * L_hi + 0.5 * L_align(MSE)
+
+  where L_align = (1/n) Σᵢ ||h_hi_i − h_bho_i||²
+
+----------------------------------------------------------------
+Evaluation: Aligned Dev split (3,097 Bhojpuri sentences)
+----------------------------------------------------------------
+UAS:                55.70 %
+LAS:                50.02 %
+
+----------------------------------------------------------------
+Improvement over F
+----------------------------------------------------------------
+  ΔUAS:  +28.13 (27.57  → 55.70)
+  ΔLAS:  +32.27 (17.75  → 50.02)
+
+  With ~1000x fewer trainable parameters.
+
+----------------------------------------------------------------
+Learning curve (Dev LAS by epoch)
+----------------------------------------------------------------
+Epoch    LAS
+  1     44.31
+  2     46.89
+  3     47.71
+  4     48.15
+  5     48.62
+  6     49.04
+  7     49.34
+  8     49.59
+  9     49.77
+ 10     50.02   <- best
+ 11     49.95
+
+----------------------------------------------------------------
+Role
+----------------------------------------------------------------
+First novel contribution — establishes the adapter-based architecture
+template that System H (SACT) refines further. Demonstrates that
+freezing the backbone + explicit alignment is a robust strategy for
+low-resource cross-lingual transfer.

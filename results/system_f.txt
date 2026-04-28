@@ -1,0 +1,45 @@
+================================================================
+System F — Warm-Start Full Fine-Tuning (Baseline)
+================================================================
+
+Description:
+  Initialise from the System A Hindi checkpoint, then fine-tune
+  ALL parameters (~278M) on the 30,966-sentence Hindi-Bhojpuri
+  aligned corpus using standard cross-entropy loss.
+
+Backbone:           xlm-roberta-base (full fine-tune, no freezing)
+Trainable params:   ~278 M
+Training data:      Hindi-Bhojpuri aligned parallel corpus
+                    (30,966 sentence pairs)
+Warm start:         Yes (from System A's Hindi checkpoint)
+
+----------------------------------------------------------------
+Evaluation: Aligned Dev split (3,097 Bhojpuri sentences)
+----------------------------------------------------------------
+UAS:                27.57 %
+LAS:                17.75 %
+
+----------------------------------------------------------------
+Why F is so weak
+----------------------------------------------------------------
+Three factors compound:
+
+1. Full fine-tuning updates ~278M parameters on a small target
+   corpus — overfitting risk is high.
+
+2. No explicit cross-lingual alignment signal — the model must
+   discover Hindi-Bhojpuri correspondences implicitly from the
+   parsing loss alone.
+
+3. Catastrophic forgetting — full fine-tuning erases the
+   multilingual prior encoded in XLM-R during pretraining.
+
+----------------------------------------------------------------
+Role
+----------------------------------------------------------------
+F is the deliberate naive baseline for Part 1. Its weakness motivates
+the frozen-backbone adapter design used in Systems G and H.
+
+F → G yields a +32.3 LAS gain (17.75 → 50.02) just by freezing the
+backbone and adding an explicit alignment loss. This is the most
+dramatic improvement in the entire study.
