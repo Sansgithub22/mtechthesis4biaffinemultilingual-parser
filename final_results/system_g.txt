@@ -1,0 +1,9 @@
+================================================================
+System G — Parallel Adapters + MSE Alignment
+================================================================
+
+Role:        Part 1 G (first novel contribution)
+Eval set:    Aligned-Data Dev (3,097 Bhojpuri sentences)
+
+UAS:         55.70
+LAS:         50.02

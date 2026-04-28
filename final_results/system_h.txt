@@ -1,0 +1,9 @@
+================================================================
+System H — SACT (Syntax-Aware Cross-Lingual Transfer)
+================================================================
+
+Role:        Part 1 winner
+Eval set:    Aligned-Data Dev (3,097 Bhojpuri sentences)
+
+UAS:         55.85
+LAS:         50.08

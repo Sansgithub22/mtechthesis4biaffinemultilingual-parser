@@ -1,0 +1,9 @@
+================================================================
+System F — Warm-Start Full Fine-Tuning (Naive Baseline)
+================================================================
+
+Role:        Part 1 baseline
+Eval set:    Aligned-Data Dev (3,097 Bhojpuri sentences)
+
+UAS:         27.57
+LAS:         17.75

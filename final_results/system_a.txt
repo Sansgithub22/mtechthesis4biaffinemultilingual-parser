@@ -1,0 +1,9 @@
+================================================================
+System A — Zero-Shot Trankit (Hindi → Bhojpuri)
+================================================================
+
+Role:        Part 2 baseline
+Eval set:    BHTB gold (357 sentences, strict UD v2)
+
+UAS:         52.78
+LAS:         35.36

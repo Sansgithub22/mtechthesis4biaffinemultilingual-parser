@@ -1,0 +1,9 @@
+================================================================
+System K — UD-Bridge (Silver Self-Training)
+================================================================
+
+Role:        Part 2 winner
+Eval set:    BHTB gold (357 sentences, strict UD v2)
+
+UAS:         54.27
+LAS:         36.70
